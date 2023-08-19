@@ -2,7 +2,7 @@
 let
 
   pathPrefix = "/pool";
-  diskKeyFile = "/mnt-root/boot/disk.key";
+  diskKeyFile = "/mnt-root/boot/keys/disk.key";
 
   generateDataDiskEntries = pool: (map
     (item: {
@@ -79,7 +79,7 @@ let
         depends = (map (item: "${pathPrefix}/${pool.name}/disks/data/${item.label}") pool.dataDisks);
         device = "${pathPrefix}/${pool.name}/disks/data/*/${volume}";
         fsType = "fuse.mergerfs";
-        options = [ "defaults" "allow_other" "minfreespace=50G" "fsname=${pool.name}_${volume}" ];
+        options = [ "defaults" "allow_other" "minfreespace=25G" "fsname=${pool.name}_${volume}" "category.create=mfs" ];
       };
     })
     pool.volumes);
@@ -121,8 +121,16 @@ let
     pool.dataDisks);
 
   generatePoolVolumeDataPaths = pool: (lib.lists.forEach (lib.cartesianProductOfSets { v = pool.volumes; d = (map (x: x.label) pool.dataDisks); }) (item: "d ${pathPrefix}/${pool.name}/disks/data/${item.d}/${item.v} 0775 root users -"));
+  setPoolContentPermissions = pool: (lib.lists.forEach (pool.dataDisks ++ pool.parityDisks) (item: "d ${pathPrefix}/${pool.name}/disks/content/${item.label} 0775 root users -"));
+  setPoolParityPermissions = pool: (lib.lists.forEach (pool.parityDisks) (item: "d ${pathPrefix}/${pool.name}/disks/parity/${item.label} 0775 root users -"));
+  setPoolSnapshotPermissions = pool: (lib.lists.forEach (pool.dataDisks) (item: "d ${pathPrefix}/${pool.name}/disks/data/${item.label}/.snapshots 0755 root users -"));
 
   generateSnapraidAlias = pool: (pkgs.writeShellScriptBin "snapraid-${pool.name}" ''
+    # TODO how to access snapper snapshots wthout root?
+    if [ "$EUID" -ne 0 ] ; then
+      echo "Please run as root"
+      exit
+    fi
     snapraid-btrfs -c /etc/snapraid_${pool.name}.conf $@
   '');
 
@@ -135,11 +143,14 @@ let
   mySnapperConfigs = generateSnapperConfigs pool;
   myPoolVolumePaths = generatePoolVolumeDataPaths pool;
   mySnapraidAlias = generateSnapraidAlias pool;
+  myPoolContentPermissions = setPoolContentPermissions pool;
+  myPoolParityPermissions = setPoolParityPermissions pool;
+  myPoolSnapshotPermissions = setPoolSnapshotPermissions pool;
 
 in
 {
   config = {
-    systemd.tmpfiles.rules = myPoolVolumePaths;
+    systemd.tmpfiles.rules = myPoolVolumePaths ++ myPoolContentPermissions ++ myPoolParityPermissions ++ myPoolSnapshotPermissions;
     environment.etc = builtins.listToAttrs mySnapraidConfigs;
     fileSystems = builtins.listToAttrs (myDataDisks ++ myDataSnapshotDisks ++ myParityDisks ++ myContentDisks ++ myVolumes);
     services.snapper.configs = builtins.listToAttrs mySnapperConfigs;

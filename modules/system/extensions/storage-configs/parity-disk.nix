@@ -16,7 +16,7 @@
                 type = "luks";
                 name = "${label}";
                 extraOpenArgs = [ ];
-                additionalKeyFiles = [ "/boot/disk.key" ];
+                additionalKeyFiles = [ "/boot/keys/disk.key" ];
                 initrdUnlock = false;
                 content = {
                   type = "btrfs";

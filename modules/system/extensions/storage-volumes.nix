@@ -20,7 +20,7 @@ let
       --extra-experimental-features flakes \
       run github:nix-community/disko/7b186e0f812a7c54a1fa86b8f7c0f01afecc69c2 -- \
         $config \
-        --mode disko \
+        --mode format \
         --root-mountpoint / \
         --arg device "/dev/disk/by-id/$disk" \
         --argstr label $label

@@ -1,0 +1,11 @@
+k9s:
+  logger:
+    tail: 200
+    buffer: 2500
+    sinceSeconds: 1800
+    textWrap: true
+    showTime: true
+  clusters:
+    default:
+      namespace:
+        active: all

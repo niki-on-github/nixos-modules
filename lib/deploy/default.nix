@@ -15,7 +15,7 @@ rec {
 
   readVisibleDirectories = path: filterDirectories (readVisible path);
 
-  generateNixosDeployments = { inputs, deploy-rs, path, sharedModules ? [ ], deployOptions ? { } }:
+  generateNixosDeployments = { inputs, path, ssh-user, sharedModules ? [ ], deployOptions ? { } }:
     let
       systems = readVisibleDirectories path;
       hosts = lib.concatMap
@@ -52,11 +52,11 @@ rec {
         lib.nameValuePair host {
           hostname = host;
           magicRollback = false; # enable this breaks sudo password see https://github.com/serokell/deploy-rs/issues/78
-          sshUser = "nixos";
+          sshUser = "${ssh-user}";
           sshOpts = [ "-o UserKnownHostsFile=/dev/null" "-o StrictHostKeyChecking=no" "-t" ];
           profiles.system = {
             user = "root";
-            path = deploy-rs.lib.x86_64-linux.activate.nixos
+            path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos
               nixosConfigurations."${host}";
           };
         };
@@ -64,5 +64,10 @@ rec {
         nodes = lib.listToAttrs (builtins.map buildDeployment hosts);
       } // deployOptions;
     in
-    { inherit nixosConfigurations deploy; };
+    {
+      inherit nixosConfigurations deploy;
+      checks = builtins.mapAttrs
+        (system: deployLib: deployLib.deployChecks deploy)
+        inputs.deploy-rs.lib;
+    };
 }

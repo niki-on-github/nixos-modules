@@ -7,7 +7,7 @@ stdenv.mkDerivation rec {
     url = "https://github.com/replicate/cog/releases/download/v0.6.1/cog_Linux_x86_64";
     sha256 = "1ja0br48vfj6ggvgx3a3dgnjdkpsw07n9qw244h4v8cvdbcfh50f";
   };
-  phases = ["installPhase" "patchPhase"];
+  phases = [ "installPhase" "patchPhase" ];
   installPhase = ''
     mkdir -p $out/bin
     cp -f $src $out/bin/cog
