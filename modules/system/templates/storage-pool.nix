@@ -1,22 +1,18 @@
 { lib, pkgs, pool, ... }:
+# NOTE: We have to add the encrypted disks to the crypttab config becaus stage 1 luks unlock will not find drives connected to the LSI HBA
 let
 
   pathPrefix = "/pool";
-  diskKeyFile = "/mnt-root/boot/keys/disk.key";
+  diskKeyFile = "/boot/keys/disk.key";
 
   generateDataDiskEntries = pool: (map
     (item: {
       name = "${pathPrefix}/${pool.name}/disks/data/${item.label}";
       value = {
+        depends = ["/dev/mapper/${item.label}"];
         device = "/dev/mapper/${item.label}";
         fsType = "btrfs";
         options = [ "subvol=@data" "compress=zstd" "noatime" "nofail" ];
-        encrypted = {
-          enable = true;
-          label = "${item.label}";
-          blkDev = "${item.blkDev}";
-          keyFile = "${diskKeyFile}";
-        };
       };
     })
     pool.dataDisks);
@@ -25,15 +21,10 @@ let
     (item: {
       name = "${pathPrefix}/${pool.name}/disks/data/${item.label}/.snapshots";
       value = {
+        depends = ["/dev/mapper/${item.label}"];
         device = "/dev/mapper/${item.label}";
         fsType = "btrfs";
         options = [ "subvol=@snapshots" "compress=zstd" "noatime" "nofail" ];
-        encrypted = {
-          enable = true;
-          label = "${item.label}";
-          blkDev = "${item.blkDev}";
-          keyFile = "${diskKeyFile}";
-        };
       };
     })
     pool.dataDisks);
@@ -42,15 +33,10 @@ let
     (item: {
       name = "${pathPrefix}/${pool.name}/disks/parity/${item.label}";
       value = {
+        depends = ["/dev/mapper/${item.label}"];
         device = "/dev/mapper/${item.label}";
         fsType = "btrfs";
         options = [ "subvol=@parity" "compress=zstd" "noatime" "nofail" ];
-        encrypted = {
-          enable = true;
-          label = "${item.label}";
-          blkDev = "${item.blkDev}";
-          keyFile = "${diskKeyFile}";
-        };
       };
     })
     pool.parityDisks);
@@ -59,18 +45,23 @@ let
     (item: {
       name = "${pathPrefix}/${pool.name}/disks/content/${item.label}";
       value = {
+        depends = ["/dev/mapper/${item.label}"];
         device = "/dev/mapper/${item.label}";
         fsType = "btrfs";
         options = [ "subvol=@content" "compress=zstd" "noatime" "nofail" ];
-        encrypted = {
-          enable = true;
-          label = "${item.label}";
-          blkDev = "${item.blkDev}";
-          keyFile = "${diskKeyFile}";
-        };
       };
     })
     (pool.dataDisks ++ pool.parityDisks));
+
+  generateCrypttabConfig = pool: [{
+    name = "crypttab";
+    value = {
+      mode = "600";
+      text = lib.mkDefault(lib.mkAfter ''
+        ${lib.strings.concatStringsSep "\n" (lib.lists.forEach (pool.dataDisks ++ pool.parityDisks) (disk: "${disk.label} ${disk.blkDev} ${diskKeyFile} nofail"))}
+      '');
+    };
+  }];
 
   generateVolumeEntries = pool: (map
     (volume: {
@@ -131,6 +122,7 @@ let
       echo "Please run as root"
       exit
     fi
+    lsblk
     snapraid-btrfs -c /etc/snapraid_${pool.name}.conf $@
   '');
 
@@ -146,12 +138,13 @@ let
   myPoolContentPermissions = setPoolContentPermissions pool;
   myPoolParityPermissions = setPoolParityPermissions pool;
   myPoolSnapshotPermissions = setPoolSnapshotPermissions pool;
+  myCrypttabConfig = generateCrypttabConfig pool;
 
 in
 {
   config = {
     systemd.tmpfiles.rules = myPoolVolumePaths ++ myPoolContentPermissions ++ myPoolParityPermissions ++ myPoolSnapshotPermissions;
-    environment.etc = builtins.listToAttrs mySnapraidConfigs;
+    environment.etc = builtins.listToAttrs (mySnapraidConfigs ++ myCrypttabConfig);
     fileSystems = builtins.listToAttrs (myDataDisks ++ myDataSnapshotDisks ++ myParityDisks ++ myContentDisks ++ myVolumes);
     services.snapper.configs = builtins.listToAttrs mySnapperConfigs;
     environment.systemPackages = [
