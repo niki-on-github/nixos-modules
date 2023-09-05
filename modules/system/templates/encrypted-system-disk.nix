@@ -30,6 +30,7 @@
             name = "system";
             extraFormatArgs = [ "--type luks1" "--pbkdf-force-iterations 500000" ];
             extraOpenArgs = [ "--type luks1" "--allow-discards" ];
+            additionalKeyFiles = [ "/tmp/disk.key" ];
             content = {
               type = "btrfs";
               extraArgs = [ "-f" ];

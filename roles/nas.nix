@@ -3,8 +3,9 @@
     general
     monitoring-tools
     samba
+    smartd-webui
     ssh
     storage-volumes
-    smartd-webui
+    vsftpd
   ];
 }

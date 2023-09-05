@@ -6,6 +6,7 @@
       systemPackages = with pkgs; [
         age
         fluxcd
+        git
         go-task
         k9s
         kubectl
@@ -66,6 +67,40 @@
         "--kubelet-arg=config=/etc/rancher/k3s/kubelet.config"
         "--kube-apiserver-arg='enable-admission-plugins=DefaultStorageClass,DefaultTolerationSeconds,LimitRanger,MutatingAdmissionWebhook,NamespaceLifecycle,NodeRestriction,PersistentVolumeClaimResize,Priority,ResourceQuota,ServiceAccount,TaintNodesByCondition,ValidatingAdmissionWebhook'"
       ];
+    };
+
+    systemd.timers."k3s-flux2-bootstrap" = {
+      wantedBy = [ "timers.target" ];
+        timerConfig = {
+          OnBootSec = "3m";
+          OnUnitActiveSec = "5m";
+          Unit = "k3s-flux2-bootstrap.service";
+        };
+    };
+
+    systemd.services."k3s-flux2-bootstrap" = {
+      script = ''
+        export PATH="$PATH:${pkgs.git}/bin"
+        if ${pkgs.kubectl}/bin/kubectl get CustomResourceDefinition -A | grep -q "toolkit.fluxcd.io" ; then
+          exit 0
+        fi
+        sleep 30
+        if ${pkgs.kubectl}/bin/kubectl get CustomResourceDefinition -A | grep -q "toolkit.fluxcd.io" ; then
+          exit 0
+        fi
+        mkdir -p /tmp/k3s-flux2-bootstrap
+        cat > /tmp/k3s-flux2-bootstrap/kustomization.yaml << EOL
+        apiVersion: kustomize.config.k8s.io/v1beta1
+        kind: Kustomization
+        resources:
+          - github.com/fluxcd/flux2/manifests/install
+        EOL
+        ${pkgs.kubectl}/bin/kubectl apply --kustomize /tmp/k3s-flux2-bootstrap
+      '';
+      serviceConfig = {
+        Type = "oneshot";
+        User = "root";
+      };
     };
   };
 }

@@ -50,10 +50,9 @@
         nativeBuildInputs = with pkgs; [
           curl
           git
-          gnupg
+          jq
           sops
           ssh-to-age
-          ssh-to-pgp
           vault
         ];
       };
@@ -63,27 +62,35 @@
         runtimeInputs = with pkgs; [
           curl
           git
-          gnupg
           jq
-          sops
-          ssh-to-pgp
-          vault
+          tree
         ];
         text = builtins.readFile ./utils/remote-install.sh;
       };
 
-      packages.x86_64-linux.create-secret = pkgs.writeShellApplication {
-        name = "create-secret";
+      packages.x86_64-linux.vault-age = pkgs.writeShellApplication {
+        name = "vault-age";
         runtimeInputs = with pkgs; [
+          age
           curl
           git
-          gnupg
+          jq
+          ssh-to-age
+        ];
+        text = builtins.readFile ./utils/vault-age.sh;
+      };
+
+      packages.x86_64-linux.vault-age-sops = pkgs.writeShellApplication {
+        name = "vault-age-sops";
+        runtimeInputs = with pkgs; [
+          age
+          curl
+          git
           jq
           sops
-          ssh-to-pgp
-          vault
+          ssh-to-age
         ];
-        text = builtins.readFile ./utils/create-secret.sh;
+        text = builtins.readFile ./utils/vault-age-sops.sh;
       };
 
       packages.x86_64-linux.update-system = pkgs.writeShellApplication {
@@ -105,6 +112,7 @@
         k3s = import ./modules/system/extensions/k3s.nix;
         monitoring-tools = import ./modules/system/extensions/monitoring-tools.nix;
         smartd-webui = import ./modules/system/extensions/smartd-webui.nix;
+        vsftpd = import ./modules/system/extensions/vsftpd.nix;
       };
 
       homeManagerModules = {
