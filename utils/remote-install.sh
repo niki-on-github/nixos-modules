@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-NIXOS_ANYWERE_COMMIT="5cdd6d6d2633498ff65dd6b15eaec8b9b8e7a3e2"
+NIXOS_ANYWERE_COMMIT="3686956935964ef245363586deda4197ba762632"
 
 if [ "$#" -lt 2 ]; then
     echo "ERROR: Illegal number of parameters $# ($*)"

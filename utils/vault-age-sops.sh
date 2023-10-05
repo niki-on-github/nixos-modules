@@ -14,6 +14,7 @@ temp=$(mktemp -d)
 cleanup() {
   rm -rf "$temp"
 }
+trap cleanup EXIT
 
 read -r -s -p 'vault token: ' vault_token
 echo "*****"

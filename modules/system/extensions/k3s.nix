@@ -1,10 +1,32 @@
 { lib, config, pkgs, ... }:
 {
+  options = {
+    services.k3s-argocd-bootstrap = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = ''
+          If enabled argocd will be installed to k3s cluster
+        '';
+      };
+    };
+    services.k3s-flux-bootstrap = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = ''
+          If enabled fluxcd will be installed to k3s cluster
+        '';
+      };
+    };
+  };
+
   config = {
 
     environment = {
       systemPackages = with pkgs; [
         age
+        argocd
         fluxcd
         git
         go-task
@@ -46,7 +68,7 @@
 
     virtualisation.docker.enable = true;
 
-    networking.firewall.allowedTCPPorts = [ 445 6443 10250 ];
+    networking.firewall.allowedTCPPorts = [ 80 443 445 6443 8080 10250 ];
 
     services.openiscsi = {
       enable = true;
@@ -69,16 +91,52 @@
       ];
     };
 
-    systemd.timers."k3s-flux2-bootstrap" = {
+    systemd.timers."k3s-argocd-bootstrap" = lib.mkIf config.services.k3s-argocd-bootstrap.enable {
       wantedBy = [ "timers.target" ];
-        timerConfig = {
-          OnBootSec = "3m";
-          OnUnitActiveSec = "5m";
-          Unit = "k3s-flux2-bootstrap.service";
-        };
+      timerConfig = {
+        OnBootSec = "3m";
+        OnUnitActiveSec = "5m";
+        Unit = "k3s-argocd-bootstrap.service";
+      };
     };
 
-    systemd.services."k3s-flux2-bootstrap" = {
+    systemd.services."k3s-argocd-bootstrap" = lib.mkIf config.services.k3s-argocd-bootstrap.enable {
+      script = ''
+        export PATH="$PATH:${pkgs.git}/bin"
+        if ${pkgs.kubectl}/bin/kubectl get CustomResourceDefinition -A | grep -q "argoproj.io" ; then
+          exit 0
+        fi
+        sleep 30
+        if ${pkgs.kubectl}/bin/kubectl get CustomResourceDefinition -A | grep -q "argoproj.io" ; then
+          exit 0
+        fi
+        mkdir -p /tmp/k3s-argocd-bootstrap
+        cat > /tmp/k3s-argocd-bootstrap/kustomization.yaml << EOL
+        apiVersion: kustomize.config.k8s.io/v1beta1
+        kind: Kustomization
+        namespace: argocd
+        resources:
+          - https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+        EOL
+        ${pkgs.kubectl}/bin/kubectl create namespace argocd || true
+        ${pkgs.kubectl}/bin/kubectl apply --kustomize /tmp/k3s-argocd-bootstrap
+      '';
+      serviceConfig = {
+        Type = "oneshot";
+        User = "root";
+      };
+    };
+
+    systemd.timers."k3s-flux2-bootstrap" = lib.mkIf config.services.k3s-flux-bootstrap.enable {
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        OnBootSec = "3m";
+        OnUnitActiveSec = "5m";
+        Unit = "k3s-flux2-bootstrap.service";
+      };
+    };
+
+    systemd.services."k3s-flux2-bootstrap" = lib.mkIf config.services.k3s-flux-bootstrap.enable {
       script = ''
         export PATH="$PATH:${pkgs.git}/bin"
         if ${pkgs.kubectl}/bin/kubectl get CustomResourceDefinition -A | grep -q "toolkit.fluxcd.io" ; then

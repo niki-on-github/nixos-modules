@@ -1,0 +1,41 @@
+{ lib, config, pkgs, nixpkgs-unstable, ... }:
+{
+  environment = {
+    systemPackages = with pkgs; [
+      bat
+      choose
+      curlie
+      delta
+      dogdns
+      du-dust
+      duf
+      fd
+      file
+      fzf
+      gping
+      rsync
+      rclone
+      helix
+      icoutils
+      imagemagick
+      jq
+      lame
+      lf
+      lsd
+      mcfly
+      mp3info
+      mp3splt
+      nixpkgs-unstable.yazi
+      coreutils-full
+      playerctl
+      procs
+      trash-cli
+      ripgrep
+      sd
+      smbnetfs
+      sshfs
+      tmux
+      zoxide
+    ];
+  };
+}

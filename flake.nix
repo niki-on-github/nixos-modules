@@ -3,15 +3,18 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-23.05";
+    nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
     home-manager.url = "github:nix-community/home-manager/release-23.05";
     sops-nix.url = "github:Mic92/sops-nix";
+    nur.url = "github:nix-community/NUR";
   };
 
-  outputs = { self, nixpkgs, home-manager, sops-nix, ... } @ inputs:
+  outputs = { self, nixpkgs, nixpkgs-unstable, home-manager, sops-nix, nur, ... } @ inputs:
     let
       lib = nixpkgs.lib;
       system = "x86_64-linux";
-      pkgs = nixpkgs.legacyPackages.${system};
+      pkgs = import nixpkgs {inherit system;};
+      unstable = import nixpkgs-unstable {inherit system;};
     in
     {
       formatter.${system} = nixpkgs.legacyPackages.${system}.nixpkgs-fmt;
@@ -68,6 +71,19 @@
         text = builtins.readFile ./utils/remote-install.sh;
       };
 
+      packages.x86_64-linux.vault-hostkey = pkgs.writeShellApplication {
+        name = "vault-hostkey";
+        runtimeInputs = with pkgs; [
+          curl
+          git
+          jq
+          openssh
+          tree
+          vault
+        ];
+        text = builtins.readFile ./utils/vault-hostkey.sh;
+      };
+
       packages.x86_64-linux.vault-age = pkgs.writeShellApplication {
         name = "vault-age";
         runtimeInputs = with pkgs; [
@@ -75,6 +91,7 @@
           curl
           git
           jq
+          tree
           ssh-to-age
         ];
         text = builtins.readFile ./utils/vault-age.sh;
@@ -113,11 +130,19 @@
         monitoring-tools = import ./modules/system/extensions/monitoring-tools.nix;
         smartd-webui = import ./modules/system/extensions/smartd-webui.nix;
         vsftpd = import ./modules/system/extensions/vsftpd.nix;
+        sound = import ./modules/system/extensions/sound.nix;
+        printer = import ./modules/system/extensions/printer.nix;
+        modern-unix = import ./modules/system/extensions/modern-unix.nix;
+        desktop = import ./modules/system/extensions/desktop.nix;
+        kvm = import ./modules/system/extensions/kvm.nix;
       };
 
       homeManagerModules = {
         general = import ./modules/home-manager/general;
         k3s = import ./modules/home-manager/extensions/k3s.nix;
+        wayland = import ./modules/home-manager/extensions/wayland.nix;
+        sound = import ./modules/home-manager/extensions/sound.nix;
+        desktop-apps = import ./modules/home-manager/general/desktop-apps.nix;
       };
     };
 }

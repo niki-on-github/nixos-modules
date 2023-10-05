@@ -28,7 +28,7 @@ let
 
   getDir = dir: lib.mapAttrs
     (file: type:
-      if type == "directory" then getDir "${dir}/${file}" else type
+      if type == "directory" then getDir "${dir}/${file}" else file
     )
     (builtins.readDir dir);
 

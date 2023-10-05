@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-DEPLOY_RS_COMMIT="724463b5a94daa810abfc64a4f87faef4e00f984"
+DEPLOY_RS_COMMIT="31c32fb2959103a796e07bbe47e0a5e287c343a8"
 
 if [ "$#" -lt 2 ]; then
     echo "ERROR: Illegal number of parameters $# ($*)"

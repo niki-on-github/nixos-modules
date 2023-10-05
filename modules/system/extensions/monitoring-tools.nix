@@ -1,14 +1,15 @@
 { pkgs, ... }:
 {
   environment.systemPackages = with pkgs; [
-    du-dust
-    file
+    hddtemp
     htop
+    inotify-tools
     iotop
     lm_sensors
     lsof
     nvtop
     powertop
+    procps
     psmisc
     smartmontools
   ];
