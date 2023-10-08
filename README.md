@@ -2,54 +2,14 @@
 
 My NixOS Modules hosted on my personal Git Server. Feel free to look around. Be aware that not all configuration files are available in my public repository.
 
-## Setup
+## Overview
 
-### Create Secret Key in Vault
+This repository provides my personal templates for `NixOS` and `home-manager` as NixOS module. For an declarative reproducible system we use the following tools:
 
-```bash
-nix run '.#vault-hostkey' -- $TARGET -g
-```
-
-### Crete SOPS secret file
-
-```bash
-nix run '.#vault-age-sops -- $TARGET $SECRET_FILE'
-```
-
-## Deployment
-
-### Clone Repository
-
-```bash
-git -c http.sslVerify=false clone $URL
-```
-
-### Remote
-
-#### Install
-
-```bash
-nix run '.#install-system' -- $TARGET nixos@$IP
-```
-
-#### Update
-
-```bash
-nix run '.#update-system' -- $TARGET $IP
-```
-
-### Local
-
-#### Install
-
-```bash
-nix-env -iA nixos.pkgs.git
-sudo nix --extra-experimental-features nix-command --extra-experimental-features flakes run github:nix-community/disko -- --mode disko ./system-disk.nix --arg device "/dev/disk/by-id/$NAME"
-sudo nixos-install --root /mnt --flake '.#$TARGET'
-```
-
-#### Update
-
-```bash
-sudo nixos-rebuild switch --flake ".#$TARGET" --upgrade
-```
+- [**NixOS**](https://nixos.org/): Linux distribution based on Nix to provide a declarative and reproducible system.
+- [**sops-nix**](https://github.com/Mic92/sops-nix): Inline secret provisioning for NixOS based on SOPS.
+- [**agenix**](https://github.com/ryantm/agenix): Encrypted file provisioning for NixOS based on age.
+- [**disko**](https://github.com/nix-community/disko): Declarative reproducible system partitioning.
+- [**nixos-anywhere**](https://github.com/nix-community/nixos-anywhere): Initial setup/deployment via ssh.
+- [**deploy-rs**](https://github.com/serokell/deploy-rs): Multi-profile Nix-flake deploy tool.
+- [**vault**](https://github.com/hashicorp/vault): Self-hosted secret management.

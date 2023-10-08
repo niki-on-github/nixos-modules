@@ -5,21 +5,28 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-23.05";
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
     home-manager.url = "github:nix-community/home-manager/release-23.05";
-    sops-nix.url = "github:Mic92/sops-nix";
     nur.url = "github:nix-community/NUR";
   };
 
-  outputs = { self, nixpkgs, nixpkgs-unstable, home-manager, sops-nix, nur, ... } @ inputs:
+  outputs = { self, nixpkgs, nixpkgs-unstable, home-manager, nur, ... } @ inputs:
     let
       lib = nixpkgs.lib;
       system = "x86_64-linux";
       pkgs = import nixpkgs {inherit system;};
       unstable = import nixpkgs-unstable {inherit system;};
+
+      filterFileType = type: file:
+        (lib.filterAttrs (name: type': type == type') file);
+
+      filterExtension = extension: file:
+        (lib.filterAttrs (name: value: (lib.hasSuffix extension name)) file);
+
+      filterRegularFiles = filterFileType "regular";
     in
     {
       formatter.${system} = nixpkgs.legacyPackages.${system}.nixpkgs-fmt;
 
-      overlays = (lib.mapAttrsToList
+      overrides = (lib.mapAttrsToList
         (src: _: import (./overlays + "/${src}/default.nix"))
         (builtins.readDir ./overlays)
       );
@@ -115,34 +122,24 @@
         text = builtins.readFile ./utils/remote-update.sh;
       };
 
-      nixosRoles = import ./roles;
+      nixosRoles = builtins.listToAttrs (map (f: {
+        name = lib.strings.removeSuffix ".nix" "${f}";
+        value = (./roles/nixos + "/${f}");
+      }) (lib.attrNames (filterExtension ".nix" (filterRegularFiles (builtins.readDir ./roles/nixos)))));
+
+      homeManagerRoles = builtins.listToAttrs (map (f: {
+        name = lib.strings.removeSuffix ".nix" "${f}";
+        value = (./roles/home-manager + "/${f}");
+      }) (lib.attrNames (filterExtension ".nix" (filterRegularFiles (builtins.readDir ./roles/home-manager)))));
 
       nixosModules = {
-        general = import ./modules/system/general;
-        boot-encrypted = import ./modules/system/extensions/boot-encrypted.nix;
-        samba = import ./modules/system/extensions/samba.nix;
-        ssh = import ./modules/system/extensions/ssh.nix;
-        storage-volumes = import ./modules/system/extensions/storage-volumes.nix;
-        encrypted-system-disk-template = import ./modules/system/templates/encrypted-system-disk.nix;
-        samba-share-template = import ./modules/system/templates/samba-share.nix;
-        storage-pool-template = import ./modules/system/templates/storage-pool.nix;
-        k3s = import ./modules/system/extensions/k3s.nix;
-        monitoring-tools = import ./modules/system/extensions/monitoring-tools.nix;
-        smartd-webui = import ./modules/system/extensions/smartd-webui.nix;
-        vsftpd = import ./modules/system/extensions/vsftpd.nix;
-        sound = import ./modules/system/extensions/sound.nix;
-        printer = import ./modules/system/extensions/printer.nix;
-        modern-unix = import ./modules/system/extensions/modern-unix.nix;
-        desktop = import ./modules/system/extensions/desktop.nix;
-        kvm = import ./modules/system/extensions/kvm.nix;
+        general = import ./modules/nixos/general;
+        templates = import ./modules/nixos/templates;
       };
 
       homeManagerModules = {
         general = import ./modules/home-manager/general;
-        k3s = import ./modules/home-manager/extensions/k3s.nix;
-        wayland = import ./modules/home-manager/extensions/wayland.nix;
-        sound = import ./modules/home-manager/extensions/sound.nix;
-        desktop-apps = import ./modules/home-manager/general/desktop-apps.nix;
+        templates = import ./modules/home-manager/templates;
       };
     };
 }
