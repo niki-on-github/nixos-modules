@@ -23,6 +23,8 @@ in
         du-dust
         duf
         fd
+        pciutils
+        usbutils
         file
         fzf
         gping
@@ -49,6 +51,7 @@ in
         sshfs
         tmux
         zoxide
+        zellij
       ];
     };
   };

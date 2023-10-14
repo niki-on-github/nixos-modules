@@ -60,6 +60,11 @@ in
       libvirt
       virt-manager
       swtpm
+      cdrtools
+      bridge-utils
+      dnsmasq
+      ebtables
+      dmidecode
     ];
 
     home-manager.users."${cfg.user}" = {

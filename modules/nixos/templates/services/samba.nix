@@ -11,16 +11,18 @@ in
       description = "Enable Samba Services.";
     };
     shares = lib.mkOption {
-      type = lib.types.listOf (lib.types.attrsOf (lib.types.submodule {
-        name = lib.mkOption {
-          type = lib.types.str;
-          description = "share name";
+      type = lib.types.listOf (lib.types.submodule {
+        options = {
+          name = lib.mkOption {
+            type = lib.types.str;
+            description = "share name";
+          };
+          path = lib.mkOption {
+            type = lib.types.str;
+            description = "share path";
+          };
         };
-        path = lib.mkOption {
-          type = lib.types.str;
-          description = "share path";
-        };
-      }));
+      });
       default = [ ];
       description = "Samba shares";
     };

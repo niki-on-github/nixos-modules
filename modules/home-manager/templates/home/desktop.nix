@@ -41,13 +41,6 @@ in
       "f ${config.home.homeDirectory}/.cache/mpd/database 0755 ${config.home.username} users -"
     ];
 
-    programs = {
-      zsh = {
-        enable = true;
-        dotDir = ".config/zsh";
-      };
-    };
-
     nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [
       "spotify"
     ];
@@ -76,6 +69,7 @@ in
       alacritty
       meld
       mpd
+      mpc-cli
       mpv
       ncmpcpp
       qview
@@ -84,6 +78,8 @@ in
       nur.repos.nltch.spotify-adblock
       thunderbird
       vopono
+      openvpn
+      python311Packages.eyeD3
     ];
-  } // import (./apps/firefox.nix) { inherit config lib pkgs; });
+  } // import (./desktop-programs.nix) { inherit config lib pkgs; });
 }

@@ -21,8 +21,5 @@
         monitoring.enable = true;
       };
     };
-
-    # TODO why does spcifing this in module has no effect?
-    programs.zsh.enable = true;
   };
 }

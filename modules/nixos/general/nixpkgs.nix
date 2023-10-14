@@ -9,6 +9,7 @@
     systemPackages = with pkgs; [
       git
       vim
+      openssh
     ];
   };
 

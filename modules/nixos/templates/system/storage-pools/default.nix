@@ -180,7 +180,7 @@ let
   myPoolContentPermissions = builtins.concatLists (map (pool: setPoolContentPermissions pool) cfg.pools);
   myPoolParityPermissions = builtins.concatLists (map (pool: setPoolParityPermissions pool) cfg.pools);
   myPoolSnapshotPermissions = builtins.concatLists (map (pool: setPoolSnapshotPermissions pool) cfg.pools);
-  myCrypttabConfigs = [generateCrypttabConfig cfg.pools];
+  myCrypttabConfigs = [ generateCrypttabConfig cfg.pools ];
 in
 {
   options.templates.system.storagePools = {
@@ -205,44 +205,50 @@ in
       description = "crypttab keyfile";
     };
     pools = lib.mkOption {
-      type = lib.types.listOf (lib.types.attrsOf (lib.types.submodule {
-        name = lib.mkOption {
-          type = lib.types.str;
-          description = "pool name";
+      type = lib.types.listOf (lib.types.submodule {
+        options = {
+          name = lib.mkOption {
+            type = lib.types.str;
+            description = "pool name";
+          };
+          volumes = lib.mkOption {
+            type = lib.types.listOf lib.types.str;
+            description = "pool volumes";
+          };
+          dataDisks = lib.mkOption {
+            type = lib.types.listOf (lib.types.submodule {
+              options = {
+                blkDev = lib.mkOption {
+                  type = lib.types.str;
+                  description = "block device path";
+                };
+                label = lib.mkOption {
+                  type = lib.types.str;
+                  description = "mount label";
+                };
+              };
+            });
+            default = [ ];
+            description = "Data Disks";
+          };
+          parityDisks = lib.mkOption {
+            type = lib.types.listOf (lib.types.submodule {
+              options = {
+                blkDev = lib.mkOption {
+                  type = lib.types.str;
+                  description = "block device path";
+                };
+                label = lib.mkOption {
+                  type = lib.types.str;
+                  description = "mount label";
+                };
+              };
+            });
+            default = [ ];
+            description = "Parity Disks";
+          };
         };
-        volumes = lib.mkOption {
-          type = lib.types.listOf lib.types.str;
-          description = "pool volumes";
-        };
-        dataDisks = lib.mkOption {
-          type = lib.types.listOf (lib.types.attrsOf (lib.types.submodule {
-            blkDev = lib.mkOption {
-              type = lib.types.str;
-              description = "block device path";
-            };
-            label = lib.mkOption {
-              type = lib.types.str;
-              description = "mount label";
-            };
-          }));
-          default = [ ];
-          description = "Data Disks";
-        };
-        parityDisks = lib.mkOption {
-          type = lib.types.listOf (lib.types.attrsOf (lib.types.submodule {
-            blkDev = lib.mkOption {
-              type = lib.types.str;
-              description = "block device path";
-            };
-            label = lib.mkOption {
-              type = lib.types.str;
-              description = "mount label";
-            };
-          }));
-          default = [ ];
-          description = "Parity Disks";
-        };
-      }));
+      });
       default = [ ];
       description = "Storage Volume Pools";
     };

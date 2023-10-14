@@ -12,8 +12,8 @@
     let
       lib = nixpkgs.lib;
       system = "x86_64-linux";
-      pkgs = import nixpkgs {inherit system;};
-      unstable = import nixpkgs-unstable {inherit system;};
+      pkgs = import nixpkgs { inherit system; };
+      unstable = import nixpkgs-unstable { inherit system; };
 
       filterFileType = type: file:
         (lib.filterAttrs (name: type': type == type') file);
@@ -119,18 +119,22 @@
 
       packages.x86_64-linux.update-system = pkgs.writeShellApplication {
         name = "update-system";
-        text = builtins.readFile ./utils/remote-update.sh;
+        text = builtins.readFile ./utils/update.sh;
       };
 
-      nixosRoles = builtins.listToAttrs (map (f: {
-        name = lib.strings.removeSuffix ".nix" "${f}";
-        value = (./roles/nixos + "/${f}");
-      }) (lib.attrNames (filterExtension ".nix" (filterRegularFiles (builtins.readDir ./roles/nixos)))));
+      nixosRoles = builtins.listToAttrs (map
+        (f: {
+          name = lib.strings.removeSuffix ".nix" "${f}";
+          value = (./roles/nixos + "/${f}");
+        })
+        (lib.attrNames (filterExtension ".nix" (filterRegularFiles (builtins.readDir ./roles/nixos)))));
 
-      homeManagerRoles = builtins.listToAttrs (map (f: {
-        name = lib.strings.removeSuffix ".nix" "${f}";
-        value = (./roles/home-manager + "/${f}");
-      }) (lib.attrNames (filterExtension ".nix" (filterRegularFiles (builtins.readDir ./roles/home-manager)))));
+      homeManagerRoles = builtins.listToAttrs (map
+        (f: {
+          name = lib.strings.removeSuffix ".nix" "${f}";
+          value = (./roles/home-manager + "/${f}");
+        })
+        (lib.attrNames (filterExtension ".nix" (filterRegularFiles (builtins.readDir ./roles/home-manager)))));
 
       nixosModules = {
         general = import ./modules/nixos/general;

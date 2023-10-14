@@ -148,7 +148,7 @@ let
     darkreader
     decentraleyes
     floccus
-    umatrix
+    ublock-origin
   ];
 
   firefoxHardenedExtensions = with pkgs.nur.repos.rycee.firefox-addons; [
@@ -161,33 +161,77 @@ let
   ] ++ firefoxCoreExtensions;
 in
 {
-  programs.firefox = {
-    enable = true;
-    package = pkgs.firefox;
-    profiles = {
-      default = {
-        id = 0;
-        extensions = firefoxHardenedExtensions;
-        search = firefoxSearchConfig;
-        settings = firefoxSettings;
+  programs = {
+    git = {
+      enable = true;
+      lfs.enable = true;
+      userName = "nix";
+      userEmail = "nix@local";
+      aliases = {
+        aa = "add --all";
+        cm = "commit -m";
+        co = "checkout";
+        s = "status";
       };
-      private = {
-        id = 1;
-        extensions = firefoxHardenedExtensions;
-        search = firefoxSearchConfig;
-        settings = firefoxSettings;
+      extraConfig = {
+        credential = {
+          helper = "cache --timeout=3600";
+        };
+        merge = {
+          tool = "${pkgs.meld}/bin/meld";
+        };
+        mergetool = {
+          keepBackup = false;
+          prompt = false;
+        };
+        mergetool."meld" = {
+          cmd = "${pkgs.meld}/bin/meld \"$LOCAL\" \"$MERGED\" \"$REMOTE\" --output \"$MERGED\"";
+        };
+        push = {
+          followTags = true;
+        };
+        pull = {
+          rebase = false;
+        };
       };
-      vpn = {
-        id = 2;
-        extensions = firefoxHardenedExtensions;
-        search = firefoxSearchConfig;
-        settings = firefoxSettings;
-      };
-      banking = {
-        id = 3;
-        extensions = firefoxCoreExtensions;
-        search = firefoxSearchConfig;
-        settings = firefoxSettings;
+    };
+    zsh = {
+      enable = true;
+      dotDir = ".config/zsh";
+    };
+    direnv = {
+      enable = true;
+      enableZshIntegration = true; # TODO: add `eval "$(direnv hook zsh)"` to your zsh config
+      nix-direnv.enable = true;
+    };
+    firefox = {
+      enable = true;
+      package = pkgs.firefox;
+      profiles = {
+        default = {
+          id = 0;
+          extensions = firefoxHardenedExtensions;
+          search = firefoxSearchConfig;
+          settings = firefoxSettings;
+        };
+        private = {
+          id = 1;
+          extensions = firefoxHardenedExtensions;
+          search = firefoxSearchConfig;
+          settings = firefoxSettings;
+        };
+        vpn = {
+          id = 2;
+          extensions = firefoxHardenedExtensions;
+          search = firefoxSearchConfig;
+          settings = firefoxSettings;
+        };
+        banking = {
+          id = 3;
+          extensions = firefoxCoreExtensions;
+          search = firefoxSearchConfig;
+          settings = firefoxSettings;
+        };
       };
     };
   };

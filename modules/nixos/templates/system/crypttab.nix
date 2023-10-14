@@ -11,29 +11,33 @@ in
       description = "Path to keyfile";
     };
     devices = lib.mkOption {
-      type = lib.types.listOf (lib.types.attrsOf (lib.types.submodule {
-        blkDev = lib.mkOption {
-          type = lib.types.str;
-          description = "block device path";
+      type = lib.types.listOf (lib.types.submodule {
+        options = {
+          blkDev = lib.mkOption {
+            type = lib.types.str;
+            description = "block device path";
+          };
+          label = lib.mkOption {
+            type = lib.types.str;
+            description = "mount label";
+          };
+          fsType = lib.mkOption {
+            type = lib.types.str;
+            default = "none";
+            description = "filesystem type";
+          };
+          mountpoint = lib.mkOption {
+            type = lib.types.str;
+            default = "mnt";
+            description = "mountpoint for decypted volume";
+          };
+          mountOptions = lib.mkOption {
+            type = lib.types.listOf lib.types.str;
+            default = [ "noatime" "nofail" ];
+            description = "mount options";
+          };
         };
-        label = lib.mkOption {
-          type = lib.types.str;
-          description = "mount label";
-        };
-        mountpoint = lib.mkOption {
-          type = lib.types.str;
-          description = "mountpoint for decypted volume";
-        };
-        fsType = lib.mkOption {
-          type = lib.types.str;
-          description = "filesystem type";
-        };
-        mountOptions = lib.mkOption {
-          type = lib.types.listOf lib.types.str;
-          default = [ "noatime" "nofail" ];
-          description = "mount options";
-        };
-      }));
+      });
       default = [ ];
       description = "Encrypted Disks";
     };
@@ -43,12 +47,12 @@ in
     environment.etc."crypttab" = {
       mode = "600";
       text = lib.mkDefault (lib.mkAfter ''
-        ${lib.strings.concatStringsSep "\n" (lib.lists.forEach (cfg.devices) (disk: "${disk.label} ${disk.blkDev} ${cfg.keyFile} nofail"))}
+        ${lib.strings.concatStringsSep "\n" (lib.lists.forEach (cfg.devices) (disk: "${disk.label} ${disk.blkDev} ${cfg.keyfile} nofail"))}
       '');
     };
     fileSystems = builtins.listToAttrs (map
       (item: {
-        name = "${item.mountpoint}";
+        name = "/${item.mountpoint}";
         value = {
           depends = [ "/dev/mapper/${item.label}" ];
           device = "/dev/mapper/${item.label}";
@@ -56,7 +60,7 @@ in
           options = item.mountOptions;
         };
       })
-      cfg.devices
+      (builtins.filter (item: item.fsType != "none") cfg.devices)
     );
   };
 }
