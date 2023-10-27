@@ -95,16 +95,6 @@ let
     })
     (pool.dataDisks ++ pool.parityDisks));
 
-  generateCrypttabConfig = pools: {
-    name = "crypttab";
-    value = {
-      mode = "600";
-      text = lib.mkDefault (lib.mkAfter ''
-        ${lib.strings.concatStringsSep "\n" (lib.lists.forEach pools (pool: (lib.lists.forEach (pool.dataDisks ++ pool.parityDisks) (disk: "${disk.label} ${disk.blkDev} ${cfg.keyFile} nofail"))))}
-      '');
-    };
-  };
-
   generateVolumeEntries = pool: (map
     (volume: {
       name = "${cfg.poolPathPrefix}/${pool.name}/volume/${volume}";
@@ -180,7 +170,6 @@ let
   myPoolContentPermissions = builtins.concatLists (map (pool: setPoolContentPermissions pool) cfg.pools);
   myPoolParityPermissions = builtins.concatLists (map (pool: setPoolParityPermissions pool) cfg.pools);
   myPoolSnapshotPermissions = builtins.concatLists (map (pool: setPoolSnapshotPermissions pool) cfg.pools);
-  myCrypttabConfigs = [ generateCrypttabConfig cfg.pools ];
 in
 {
   options.templates.system.storagePools = {
@@ -195,12 +184,12 @@ in
       description = "Enable samba share for storage-pools.";
     };
     poolPathPrefix = lib.mkOption {
-      type = lib.types.srt;
+      type = lib.types.str;
       default = "/pool";
       description = "Pools path prefix";
     };
     keyFile = lib.mkOption {
-      type = lib.types.srt;
+      type = lib.types.str;
       default = "/boot/keys/disk.key";
       description = "crypttab keyfile";
     };
@@ -256,15 +245,32 @@ in
 
   config = lib.mkIf cfg.enable {
 
-    templates.services.samba = lib.mkIf cfg.samba {
-      enable = true;
-      shares = builtins.concatLists (map
-        (pool: (map
-          (volume: { name = "${pool.name}-${volume}"; path = "${cfg.poolPathPrefix}/${pool.name}/volume/${volume}"; })
-          pool.volumes)
-        )
-        cfg.pools
-      );
+    templates = {
+      services.samba = lib.mkIf cfg.samba {
+        enable = true;
+        shares = builtins.concatLists (map
+          (pool: (map
+            (volume: { name = "${pool.name}-${volume}"; path = "${cfg.poolPathPrefix}/${pool.name}/volume/${volume}"; })
+            pool.volumes)
+          ) 
+          cfg.pools
+        );
+      };
+      system = {
+        crypttab.devices = (builtins.concatLists (map
+          (pool: (map
+            (disk: { blkDev = disk.blkDev; label = disk.label; })
+            pool.dataDisks)
+          ) 
+          cfg.pools
+        )) ++ (builtins.concatLists (map
+          (pool: (map
+            (disk: { blkDev = disk.blkDev; label = disk.label; })
+            pool.parityDisks)
+          ) 
+          cfg.pools
+        ));
+      };
     };
 
     systemd = {
@@ -276,13 +282,13 @@ in
     fileSystems = builtins.listToAttrs (myDataDisks ++ myDataSnapshotDisks ++ myParityDisks ++ myContentDisks ++ myVolumes);
 
     services = {
-      snapper = {
+     snapper = {
         configs = builtins.listToAttrs mySnapperConfigs;
       };
     };
 
     environment = {
-      etc = builtins.listToAttrs (mySnapraidConfigs ++ myCrypttabConfigs ++ (generate-configs ./storage-configs "disk-formater"));
+      etc = builtins.listToAttrs (mySnapraidConfigs ++ (generate-configs ./storage-configs "disk-formater"));
       systemPackages = with pkgs; [
         btrfs-progs
         mergerfs
@@ -290,8 +296,8 @@ in
         snapper
         snapraid
         snapraid-btrfs
-        (writeShellScriptBin "disk-formater" "${disk-formater}")
-      ] ++ mySnaraidAliases;
+       (writeShellScriptBin "disk-formater" "${disk-formater}")
+      ] ++ mySnapraidAliases;
     };
   };
 }

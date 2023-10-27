@@ -1,6 +1,39 @@
 { config, lib, pkgs, nixpkgs-unstable, ... }:
 let
   cfg = config.templates.home.desktop;
+
+  generateFiles = files: (map
+    (f: {
+      name = "${f}";
+      value = {
+        source = ./dotfiles + "/${f}";
+      };
+    })
+    files
+  );
+
+  generateDirectoriesRecursive = directories: (map
+    (d: {
+      name = "${d}";
+      value = {
+        source = ./dotfiles + "/${d}";
+        recursive = true;
+      };
+    })
+    directories
+  );
+
+  filterFileType = type: file:
+    (lib.filterAttrs (name: type': type == type') file);
+
+  filterExcludeExtension = extension: file:
+    (lib.filterAttrs (name: value: !(lib.hasSuffix extension name)) file);
+
+  filterRegularFiles = filterFileType "regular";
+
+  filterDirectories = filterFileType "directory";
+
+  dotfiles = (generateFiles (lib.attrNames (filterExcludeExtension ".lock" (filterExcludeExtension ".nix" (filterRegularFiles (builtins.readDir ./dotfiles)))))) ++ (generateDirectoriesRecursive(lib.attrNames (filterDirectories (builtins.readDir ./dotfiles))));
 in
 {
   options.templates.home.desktop = {
@@ -12,6 +45,9 @@ in
   };
 
   config = lib.mkIf cfg.enable ({
+
+    home.file = builtins.listToAttrs dotfiles;
+  
     services = {
       udiskie = {
         enable = true;
@@ -63,23 +99,26 @@ in
       swayidle
     ] ++ [
       pamixer
+      pavucontrol
       pulsemixer
       easyeffects
     ] ++ [
       alacritty
       meld
-      mpd
       mpc-cli
       mpv
+      ffmpeg_6-full
       ncmpcpp
-      qview
+      imv
+      veracrypt
+      android-file-transfer
       newsboat
       obs-studio
       nur.repos.nltch.spotify-adblock
       thunderbird
       vopono
       openvpn
-      python311Packages.eyeD3
     ];
-  } // import (./desktop-programs.nix) { inherit config lib pkgs; });
+  }   
+  // import (./desktop-programs.nix) { inherit config lib pkgs; });
 }

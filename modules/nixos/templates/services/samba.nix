@@ -21,6 +21,11 @@ in
             type = lib.types.str;
             description = "share path";
           };
+          hostsAllow = lib.mkOption {
+            type = lib.types.str;
+            default = "127.0.0.1 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16";
+            description = "acress control on ip address level";
+          };
         };
       });
       default = [ ];
@@ -55,6 +60,8 @@ in
             "guest ok" = "no";
             "public" = "no";
             "force group" = "users";
+            "hosts allow" = "${volume.hostsAllow}";
+            "hosts deny" = "0.0.0.0/0";
           };
         })
         cfg.shares

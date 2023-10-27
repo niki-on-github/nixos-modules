@@ -77,6 +77,7 @@ in
     };
 
     virtualisation = {
+      spiceUSBRedirection.enable = true;
       libvirtd = {
         enable = true;
         extraConfig = ''
@@ -89,6 +90,7 @@ in
         qemu = {
           package = pkgs.qemu_kvm;
           ovmf.enable = true;
+          swtpm.enable = true;
           runAsRoot = false;
           verbatimConfig = ''
             namespaces = []

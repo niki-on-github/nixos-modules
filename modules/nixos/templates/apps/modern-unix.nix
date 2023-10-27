@@ -29,6 +29,7 @@ in
         fzf
         gping
         rsync
+        parallel
         rclone
         helix
         icoutils

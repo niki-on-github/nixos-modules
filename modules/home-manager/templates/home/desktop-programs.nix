@@ -2,7 +2,7 @@
 let
   firefoxSearchConfig = {
     force = true;
-    default = "DuckDuckGo";
+    default = "Google";
     order = [ "DuckDuckGo" "Google" ];
     engines = {
       "Google".metaData.alias = "@g";
@@ -95,17 +95,17 @@ let
     "browser.newtabpage.activity-stream.telemetry" = false;
     "browser.newtabpage.enabled" = true;
     "browser.ping-centre.telemetry" = false;
-    "browser.search.defaultenginename" = "DuckDuckGo";
+    "browser.search.defaultenginename" = "Google";
     "browser.search.openintab" = true;
     "browser.search.region" = "DE";
-    "browser.search.selectedEngine" = "DuckDuckGo";
+    "browser.search.selectedEngine" = "Google";
     "browser.startup.homepage" = "about:home";
     "browser.startup.page" = 1;
     "browser.theme.content-theme" = 0;
     "browser.theme.toolbar-theme" = 0;
     "browser.toolbars.bookmarks.visibility" = "always";
     "browser.uidensity" = 1;
-    "browser.urlbar.placeholderName" = "DuckDuckGo";
+    "browser.urlbar.placeholderName" = "Google";
     "browser.urlbar.suggest.bookmark" = false;
     "browser.urlbar.suggest.history" = false;
     "browser.urlbar.suggest.openpage" = false;
@@ -141,6 +141,7 @@ let
     "toolkit.telemetry.shutdownPingSender.enabled" = false;
     "toolkit.telemetry.unified" = false;
     "toolkit.telemetry.updatePing.enabled" = false;
+    "browser.fixup.domainsuffixwhitelist.lan" = true;
   };
 
   firefoxCoreExtensions = with pkgs.nur.repos.rycee.firefox-addons; [
