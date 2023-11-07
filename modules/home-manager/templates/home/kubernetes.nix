@@ -12,7 +12,7 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    programs.k9s = {
+     programs.k9s = {
       enable = true;
       settings = {
         k9s = {

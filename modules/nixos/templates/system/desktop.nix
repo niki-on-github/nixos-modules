@@ -14,6 +14,62 @@ in
 
   config = lib.mkIf cfg.enable {
 
+    fonts = {
+
+      /*
+      fontconfig =
+        let fonts = config.themes.fonts;
+        in
+        {
+          enable = lib.mkForce true;
+
+          # System-wide default fonts
+          defaultFonts = {
+            monospace = [ "Noto Mono 12" ];
+            sansSerif = [ "Noto Sans 12" ];
+            serif = [ "Noto Serif 12" ];
+          };
+        };
+      */
+
+      # Create a directory with links to all fonts in
+      # /run/current-system/sw/share/X11/fonts
+      # fontDir.enable = true;
+
+      # List of primary font paths
+      fonts = with pkgs; [
+        ibm-plex
+        jetbrains-mono
+        hasklig
+        hack-font
+        nerdfonts
+
+        material-design-icons
+        material-icons
+
+        powerline-fonts
+
+        fira
+        fira-mono
+        fira-code
+        fira-code-symbols
+
+        noto-fonts
+        noto-fonts-emoji
+        noto-fonts-extra
+
+        roboto
+        roboto-mono
+        roboto-slab
+
+        anonymousPro
+        corefonts
+        source-code-pro
+        symbola
+        liberation_ttf
+      ];
+    };
+
     # https://nixos.wiki/wiki/Appimage
     boot.binfmt.registrations.appimage = {
       wrapInterpreterInShell = false;

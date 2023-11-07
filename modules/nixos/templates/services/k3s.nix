@@ -45,6 +45,31 @@ in
         openiscsi
         openssl_3
         sops
+        (writeShellScriptBin "nuke-k3s" ''
+          if [ "$EUID" -ne 0 ] ; then
+            echo "Please run as root"
+            exit 1
+          fi
+          read -r -p 'Nuke k3s?, confirm with yes (y/N): ' choice
+          case "$choice" in
+            y|Y|yes|Yes) echo "nuke k3s...";;
+            *) exit 0;;
+          esac
+          if command -v flux; then
+            flux uninstall -s
+          fi
+          kubectl delete deployments --all=true -A
+          kubectl delete statefulsets --all=true -A  
+          kubectl delete ns --all=true -A    
+          kubectl get ns | tail -n +2 | cut -d ' ' -f 1 | xargs -I{} kubectl delete pods --all=true --force=true -n {}
+          echo "wait until objects are deleted..."
+          sleep 30
+          systemctl stop k3s
+          rm -rf /var/lib/rancher/k3s/
+          rm -rf /var/lib/cni/networks/cbr0/
+          sync
+          echo -e "\n => reboot to complete k3s cleanup!"
+        '')
       ];
 
       etc = {
@@ -75,7 +100,7 @@ in
       "fs.inotify.max_user_watches" = 524288;
     };
 
-    virtualisation.docker.enable = true;
+    virtualisation.podman.enable = true;
 
     networking.firewall.allowedTCPPorts = [ 80 443 445 6443 8080 10250 ];
 
@@ -103,8 +128,8 @@ in
     systemd.timers."k3s-argocd-bootstrap" = lib.mkIf cfg.argocdBootstrap.enable {
       wantedBy = [ "timers.target" ];
       timerConfig = {
-        OnBootSec = "3m";
-        OnUnitActiveSec = "5m";
+        OnBootSec = "2m";
+        OnUnitActiveSec = "3m";
         Unit = "k3s-argocd-bootstrap.service";
       };
     };
@@ -115,7 +140,7 @@ in
         if ${pkgs.kubectl}/bin/kubectl get CustomResourceDefinition -A | grep -q "argoproj.io" ; then
           exit 0
         fi
-        sleep 30
+        sleep 20
         if ${pkgs.kubectl}/bin/kubectl get CustomResourceDefinition -A | grep -q "argoproj.io" ; then
           exit 0
         fi
@@ -139,8 +164,8 @@ in
     systemd.timers."k3s-flux2-bootstrap" = lib.mkIf cfg.fluxBootstrap.enable {
       wantedBy = [ "timers.target" ];
       timerConfig = {
-        OnBootSec = "3m";
-        OnUnitActiveSec = "5m";
+        OnBootSec = "2m";
+        OnUnitActiveSec = "3m";
         Unit = "k3s-flux2-bootstrap.service";
       };
     };
@@ -151,7 +176,7 @@ in
         if ${pkgs.kubectl}/bin/kubectl get CustomResourceDefinition -A | grep -q "toolkit.fluxcd.io" ; then
           exit 0
         fi
-        sleep 30
+        sleep 20
         if ${pkgs.kubectl}/bin/kubectl get CustomResourceDefinition -A | grep -q "toolkit.fluxcd.io" ; then
           exit 0
         fi

@@ -16,6 +16,7 @@ in
     environment = {
       systemPackages = with pkgs; [
         bat
+        bc
         choose
         curlie
         delta
@@ -31,7 +32,7 @@ in
         rsync
         parallel
         rclone
-        helix
+        nixpkgs-unstable.helix
         icoutils
         imagemagick
         jq
@@ -53,6 +54,7 @@ in
         tmux
         zoxide
         zellij
+        starship
       ];
     };
   };

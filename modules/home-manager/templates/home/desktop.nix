@@ -45,7 +45,7 @@ in
   };
 
   config = lib.mkIf cfg.enable ({
-
+    
     home.file = builtins.listToAttrs dotfiles;
   
     services = {
@@ -103,7 +103,8 @@ in
       pulsemixer
       easyeffects
     ] ++ [
-      alacritty
+      nixpkgs-unstable.alacritty
+      kitty
       meld
       mpc-cli
       mpv

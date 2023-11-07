@@ -11,7 +11,11 @@ fi
 TARGET="$1"; shift
 
 if [ "$#" -lt 1 ]; then
-    exec sudo nixos-rebuild switch --flake ".#$TARGET" --upgrade
+    read -r -p 'Update local system, confirm with yes (y/N): ' choice
+    case "$choice" in
+        y|Y|yes|Yes) exec sudo nixos-rebuild switch --flake ".#$TARGET" --upgrade;;
+        *) exit 0;;
+    esac
 fi
 
 HOSTNAME="$1"; shift
