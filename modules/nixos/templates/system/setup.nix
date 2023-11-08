@@ -1,22 +1,32 @@
 { config, lib, pkgs, ... }:
 
 let
-  cfg = config.templates.system.bootEncrypted;
+  cfg = config.templates.system.setup;
+  
+  mkEnableIfElse = a : b: yes: no: lib.mkMerge [
+    (lib.mkIf (a && b) yes)
+    (lib.mkIf (a && !b) no)
+  ];
 in
 {
-  options.templates.system.bootEncrypted = {
+  options.templates.system.setup = {
     enable = lib.mkOption {
       type = lib.types.bool;
       default = false;
-      description = "Enable Encypted System Boot.";
+      description = "Enable System Setup.";
+    };
+    encrypt = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Encypted System";
     };
     disk = lib.mkOption {
       type = lib.types.str;
-      description = "Encrypted Disk e.g. /dev/disk/by-id/ata-ssd";
+      description = "Disk e.g. /dev/disk/by-id/ata-ssd";
     };
   };
 
-  config = lib.mkIf cfg.enable {
+  config = mkEnableIfElse cfg.enable cfg.encrypt {
     boot = {
       loader = {
         efi = {
@@ -112,6 +122,87 @@ in
                     mountpoint = "/swap";
                     mountOptions = [ "compress=zstd" "noatime" ];
                   };
+                };
+              };
+            };
+          }
+        ];
+      };
+    });
+    
+  } {
+
+    boot = {
+      loader = {
+        efi = {
+          canTouchEfiVariables = true;
+          efiSysMountPoint = "/boot/efi";
+        };
+        grub = {
+          enable = true;
+          device = "nodev";
+          efiSupport = true;
+        };
+      };
+
+      kernelParams = [
+        "boot.shell_on_fail"
+      ];
+
+      initrd = {
+        availableKernelModules = [ "nvme" "ahci" "xhci_pci" "usbhid" "usb_storage" "virtio_pci" "sr_mod" "virtio_blk" "virtio-scsi" "sd_mod" "sdhci_pci" "aesni_intel" "cryptd" ];
+      };
+    };
+    
+     disko.devices.disk = lib.genAttrs [ "${cfg.disk}" ] (dev: {
+      device = dev;
+      type = "disk";
+      content = {
+        type = "table";
+        format = "gpt";
+        partitions = [
+          {
+            name = "boot";
+            start = "1MiB";
+            end = "128MiB";
+            bootable = true;
+            content = {
+              type = "filesystem";
+              format = "vfat";
+              extraArgs = [ "-F32" ];
+              mountpoint = "/boot/efi";
+              mountOptions = [
+                "defaults"
+              ];
+            };
+          }
+          {
+            name = "system";
+            start = "128MiB";
+            end = "100%";
+            content = {
+              type = "btrfs";
+              extraArgs = [ "-f" ];
+              subvolumes = {
+                "/@" = {
+                  mountpoint = "/";
+                  mountOptions = [ "compress=zstd" "noatime" ];
+                };
+                "/@home" = {
+                  mountpoint = "/home";
+                  mountOptions = [ "compress=zstd" "noatime" ];
+                };
+                "/@nix" = {
+                  mountpoint = "/nix";
+                  mountOptions = [ "compress=zstd" "noatime" ];
+                };
+                "/@log" = {
+                  mountpoint = "/var/log";
+                  mountOptions = [ "compress=zstd" "noatime" ];
+                };
+                "/@swap" = {
+                  mountpoint = "/swap";
+                  mountOptions = [ "compress=zstd" "noatime" ];
                 };
               };
             };

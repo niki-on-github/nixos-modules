@@ -11,7 +11,7 @@
     ./services/ssh.nix
     ./services/vsftpd.nix
     ./services/podman.nix
-    ./system/boot-encrypted.nix
+    ./system/setup.nix
     ./system/crypttab.nix
     ./system/desktop.nix
     ./system/storage-pools
