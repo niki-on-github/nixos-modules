@@ -42,7 +42,7 @@ in
       ];
 
       initrd = {
-        availableKernelModules = [ "nvme" "ahci" "xhci_pci" "usbhid" "usb_storage" "virtio_pci" "sr_mod" "virtio_blk" "sd_mod" "sdhci_pci" "aesni_intel" "cryptd" ];
+        availableKernelModules = [ "nvme" "ahci" "xhci_pci" "usbhid" "usb_storage" "virtio_pci" "sr_mod" "virtio_blk" "virtio-scsi" "sd_mod" "sdhci_pci" "aesni_intel" "cryptd" ];
         luks.devices.system = {
           allowDiscards = true;
           keyFile = "/disk.key";
