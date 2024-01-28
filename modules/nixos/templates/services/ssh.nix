@@ -13,11 +13,6 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    programs.gnupg.agent = {
-      enable = true;
-      enableSSHSupport = true;
-    };
-
     networking.firewall.allowedTCPPorts = [ 22 ];
 
     services = {

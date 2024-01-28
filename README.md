@@ -13,3 +13,7 @@ This repository provides my personal templates for `NixOS` and `home-manager` as
 - [**nixos-anywhere**](https://github.com/nix-community/nixos-anywhere): Initial setup/deployment via ssh.
 - [**deploy-rs**](https://github.com/serokell/deploy-rs): Multi-profile Nix-flake deploy tool.
 - [**vault**](https://github.com/hashicorp/vault): Self-hosted secret management.
+
+## TODO
+
+- [goldwarden](https://github.com/NixOS/nixpkgs/pull/278362)

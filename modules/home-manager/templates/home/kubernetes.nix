@@ -17,9 +17,9 @@ in
       settings = {
         k9s = {
           logger = {
-            tail = 200;
-            buffer = 2500;
-            sinceSeconds = 1800;
+            tail = 1000;
+            buffer = 10000;
+            sinceSeconds = 86400;
             textWrap = true;
             showTime = true;
           };

@@ -13,48 +13,60 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [
+      "unrar"
+    ];
     environment = {
       systemPackages = with pkgs; [
+        age
         bat
         bc
         choose
+        coreutils-full
         curlie
         delta
         dogdns
         du-dust
         duf
         fd
-        pciutils
-        usbutils
         file
         fzf
         gping
-        rsync
-        parallel
-        rclone
-        nixpkgs-unstable.helix
         icoutils
         imagemagick
         jq
+        p7zip
+        kubectl
         lame
         lf
         lsd
         mcfly
+        mediainfo
         mp3info
         mp3splt
+        nixpkgs-unstable.helix
         nixpkgs-unstable.yazi
-        coreutils-full
+        openssl
+        parallel
+        pciutils
         playerctl
         procs
-        trash-cli
+        rclone
         ripgrep
+        rsync
         sd
         smbnetfs
+        sops
         sshfs
-        tmux
-        zoxide
-        zellij
         starship
+        tmux
+        trash-cli
+        tree
+        unrar
+        usbutils
+        zellij
+        zoxide
+        vault-medusa
       ];
     };
   };

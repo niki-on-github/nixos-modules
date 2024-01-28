@@ -10,7 +10,7 @@ fi
 
 TARGET="$1"; shift
 HOST="$1"; shift
-VAULT_ADDR="https://vault.server01.lan"
+VAULT_ADDR="https://vault.k8s.lan"
 VAULT_KEYNAME="$TARGET"
 RED='\033[0;31m'
 NC='\033[0m'

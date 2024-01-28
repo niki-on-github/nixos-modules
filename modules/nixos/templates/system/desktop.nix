@@ -10,34 +10,22 @@ in
       default = false;
       description = "Enable Desktop services.";
     };
+    waydroid.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Enable waydroid services.";
+    };
+    sddm.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Enable display manager services.";
+    };
   };
 
   config = lib.mkIf cfg.enable {
 
     fonts = {
-
-      /*
-      fontconfig =
-        let fonts = config.themes.fonts;
-        in
-        {
-          enable = lib.mkForce true;
-
-          # System-wide default fonts
-          defaultFonts = {
-            monospace = [ "Noto Mono 12" ];
-            sansSerif = [ "Noto Sans 12" ];
-            serif = [ "Noto Serif 12" ];
-          };
-        };
-      */
-
-      # Create a directory with links to all fonts in
-      # /run/current-system/sw/share/X11/fonts
-      # fontDir.enable = true;
-
-      # List of primary font paths
-      fonts = with pkgs; [
+      packages = with pkgs; [
         ibm-plex
         jetbrains-mono
         hasklig
@@ -80,6 +68,12 @@ in
       magicOrExtension = ''\x7fELF....AI\x02'';
     };
 
+    virtualisation = {
+      waydroid = lib.mkIf cfg.waydroid.enable {
+        enable = true;
+      };
+    };
+
     networking.networkmanager.enable = true;
 
     hardware.opengl.enable = true;
@@ -87,6 +81,7 @@ in
       dbus.enable = true;
       udisks2.enable = true;
       atd.enable = true;
+      flatpak.enable = true;
     };
 
     programs = {
@@ -97,11 +92,13 @@ in
       dconf.enable = true;
       xwayland.enable = true;
       zsh.enable = true;
+      thunar.enable = true;
     };
 
     xdg.portal = {
       enable = true;
       wlr.enable = true;
+      extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
     };
 
     security.rtkit.enable = true;
@@ -120,16 +117,31 @@ in
       support32Bit = true;
     };
 
+    services.xserver = lib.mkIf cfg.sddm.enable {
+      enable = true;
+      displayManager.sddm = {
+        enable = true;
+        theme = "simple-login-sddm-theme";
+      };
+    };
+
     environment = {
-      systemPackages = with pkgs; [
-        at
-        networkmanagerapplet
-        xdg-utils
-        libnotify
-        libappindicator
-        libsForQt5.qt5ct
-        libsForQt5.breeze-qt5
-        libsForQt5.breeze-gtk
+      systemPackages = with pkgs; lib.mkMerge [ 
+        [
+          at
+          networkmanagerapplet
+          xdg-utils
+          appimage-run
+          libnotify
+          libappindicator
+          libsForQt5.breeze-gtk
+          libsForQt5.breeze-qt5
+          libsForQt5.qt5ct
+          flatpak-builder
+        ]
+        (lib.mkIf cfg.sddm.enable [
+          simple-login-sddm-theme
+        ])
       ];
     };
   };

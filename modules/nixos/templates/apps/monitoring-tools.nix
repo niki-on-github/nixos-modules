@@ -20,10 +20,11 @@ in
       iotop
       lm_sensors
       lsof
-      nvtop
       powertop
       procps
       psmisc
+      usbutils
+      pciutils
       smartmontools
     ];
   };

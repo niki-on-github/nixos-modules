@@ -1,16 +1,48 @@
 { lib, config, pkgs, ... }:
 let
-  cfg = config.templates.services.singleNodeCluster;
+  cfg = config.templates.services.k3s;
 in
 {
-  options.templates.services.singleNodeCluster = {
+  options.templates.services.k3s = {
     enable = lib.mkOption {
       type = lib.types.bool;
       default = false;
       description = "Enable Single Node K3S Cluster.";
     };
 
-    argocdBootstrap = {
+    coredns = {  
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = ''
+          If enabled coredns will be installed to k3s cluster
+        '';
+      };    
+    };
+
+    loadbalancer = {  
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = ''
+          If enabled klipper-lb will be enabled on k3s cluster
+        '';
+      };    
+    };
+
+    network = {
+      flannel = {  
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = ''
+            If enabled flannel network will be enabled on k3s cluster
+          '';
+        };    
+      };
+    };
+
+    argocd = {
       enable = lib.mkOption {
         type = lib.types.bool;
         default = false;
@@ -19,13 +51,69 @@ in
         '';
       };
     };
-    fluxBootstrap = {
+
+    flux = {
       enable = lib.mkOption {
         type = lib.types.bool;
         default = false;
         description = ''
-          If enabled fluxcd will be installed to k3s cluster
+          If enabled flux will be installed to k3s cluster
         '';
+      };
+    };
+
+    nfs = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = ''
+          If enabled nfs-server will be enabled on node
+        '';
+      };
+      path = lib.mkOption {
+        type = lib.types.str;
+        default = "/mnt/nfs";
+        description = ''
+          Host path for nfs server share
+        '';
+      };
+    };
+
+    minio = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = ''
+          If enabled minio will be enabled on node
+        '';
+      };
+      credentialsFile = lib.mkOption {
+        type = lib.types.path;
+        description = ''
+          File containing the MINIO_ROOT_USER, default is "minioadmin", and
+          MINIO_ROOT_PASSWORD (length >= 8), default is "minioadmin"; in the format of
+          an EnvironmentFile=, as described by systemd.exec(5). The acess permission must
+          be set to 770 for minio:minio.
+        '';
+      };
+      region = lib.mkOption {
+        type = lib.types.str;
+        default = "local";
+        description = ''
+          The physical location of the server.
+        '';
+      };
+      buckets = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = ["volsync" "postgres"];
+        description = ''
+          Bucket name.
+        '';
+      };
+      dataDir = lib.mkOption {
+        default = [ "/var/lib/minio/data" ];
+        type = lib.types.listOf (lib.types.either lib.types.path lib.types.str);
+        description = "The list of data directories or nodes for storing the objects.";
       };
     };
   };
@@ -36,15 +124,19 @@ in
       systemPackages = with pkgs; [
         age
         argocd
+        cilium-cli
         fluxcd
         git
         go-task
+        minio-client        
         k9s
+        krelay
         kubectl
         nfs-utils
         openiscsi
         openssl_3
         sops
+
         (writeShellScriptBin "nuke-k3s" ''
           if [ "$EUID" -ne 0 ] ; then
             echo "Please run as root"
@@ -67,8 +159,13 @@ in
           systemctl stop k3s
           rm -rf /var/lib/rancher/k3s/
           rm -rf /var/lib/cni/networks/cbr0/
+          if [ -d /opt/k3s/data/temp ]; then
+            rm -rf /opt/k3s/data/temp/*
+          fi
           sync
-          echo -e "\n => reboot to complete k3s cleanup!"
+          echo -e "\n => reboot now to complete k3s cleanup!"
+          sleep 3
+          reboot
         '')
       ];
 
@@ -90,9 +187,15 @@ in
       };
     };
 
-    systemd.tmpfiles.rules = [
-      "d /root/.kube 0755 root root -"
-      "L /root/.kube/config  - - - - /etc/rancher/k3s/k3s.yaml"
+    systemd.tmpfiles.rules = lib.mkMerge [
+      [
+        "d /root/.kube 0755 root root -"
+        "L /root/.kube/config  - - - - /etc/rancher/k3s/k3s.yaml"
+      ]
+      (lib.mkIf cfg.nfs.enable [
+        "d ${cfg.nfs.path} 0775 root root -"
+        "d ${cfg.nfs.path}/pv 0775 root root -"
+      ])
     ];
 
     boot.kernel.sysctl = {
@@ -100,41 +203,80 @@ in
       "fs.inotify.max_user_watches" = 524288;
     };
 
-    virtualisation.podman.enable = true;
+    networking.firewall.allowedTCPPorts = lib.mkMerge [
+      [ 80 222 443 445 6443 8080 10250 ]
+      (lib.mkIf cfg.nfs.enable [ 2049 ])
+      (lib.mkIf cfg.minio.enable [ 9000 9001 ])
+    ];
 
-    networking.firewall.allowedTCPPorts = [ 80 443 445 6443 8080 10250 ];
-
-    services.openiscsi = {
-      enable = true;
-      name = "iscsid";
-    };
-
-    services.prometheus.exporters.node = {
-      enable = true;
-    };
-
-    services.k3s = {
-      enable = true;
-      package = pkgs.k3s;
-      role = "server";
-      environmentFile = "/etc/rancher/k3s/k3s.service.env";
-      extraFlags = toString [
-        "--disable=traefik,local-storage,metrics-server"
-        "--kubelet-arg=config=/etc/rancher/k3s/kubelet.config"
-        "--kube-apiserver-arg='enable-admission-plugins=DefaultStorageClass,DefaultTolerationSeconds,LimitRanger,MutatingAdmissionWebhook,NamespaceLifecycle,NodeRestriction,PersistentVolumeClaimResize,Priority,ResourceQuota,ServiceAccount,TaintNodesByCondition,ValidatingAdmissionWebhook'"
-      ];
-    };
-
-    systemd.timers."k3s-argocd-bootstrap" = lib.mkIf cfg.argocdBootstrap.enable {
-      wantedBy = [ "timers.target" ];
-      timerConfig = {
-        OnBootSec = "2m";
-        OnUnitActiveSec = "3m";
-        Unit = "k3s-argocd-bootstrap.service";
+    services = {
+      prometheus.exporters.node = {
+        enable = true;
+      };
+      openiscsi = {
+        enable = true;
+        name = "iscsid";
+      };
+      nfs.server = lib.mkIf cfg.nfs.enable {
+        enable = true;
+        exports = ''
+          ${cfg.nfs.path} ${config.networking.hostName}(rw,fsid=0,async,no_subtree_check,no_auth_nlm,insecure,no_root_squash)        
+        '';
+      };
+      minio = lib.mkIf cfg.minio.enable {
+        enable = true;
+        region = cfg.minio.region;
+        dataDir = cfg.minio.dataDir;
+        rootCredentialsFile = cfg.minio.credentialsFile;
+      };
+      k3s = {
+        enable = true; 
+        package = pkgs.k3s;
+        role = "server";
+        environmentFile = "/etc/rancher/k3s/k3s.service.env";
+        extraFlags = toString [
+          "--disable=traefik,local-storage,metrics-server${lib.strings.optionalString (!cfg.loadbalancer.enable) ",servicelb"}${lib.strings.optionalString (!cfg.coredns.enable) ",coredns"}"
+          "--kubelet-arg=config=/etc/rancher/k3s/kubelet.config"
+          "--kube-apiserver-arg='enable-admission-plugins=DefaultStorageClass,DefaultTolerationSeconds,LimitRanger,MutatingAdmissionWebhook,NamespaceLifecycle,NodeRestriction,PersistentVolumeClaimResize,Priority,ResourceQuota,ServiceAccount,TaintNodesByCondition,ValidatingAdmissionWebhook'"
+          "${lib.strings.optionalString (!cfg.network.flannel.enable) "--flannel-backend=none"}"
+        ];
       };
     };
 
-    systemd.services."k3s-argocd-bootstrap" = lib.mkIf cfg.argocdBootstrap.enable {
+    systemd = {
+      services = {
+        k3s.after = lib.mkIf cfg.nfs.enable [ "nfs-server.service" ];
+        minio-init = lib.mkIf cfg.minio.enable {
+          enable = true;
+          path = [ pkgs.minio pkgs.minio-client];
+          requiredBy = [ "multi-user.target" ];
+          after = [ "minio.service" ];
+          serviceConfig = {
+            Type = "simple";
+            User = "minio";
+            Group = "minio";
+            RuntimeDirectory = "minio-config";
+          };
+          script = ''
+            set -e
+            sleep 5
+            source ${cfg.minio.credentialsFile}     
+            mc --config-dir "$RUNTIME_DIRECTORY" alias set minio http://localhost:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
+            ${toString (lib.lists.forEach cfg.minio.buckets (bucket: "mc --config-dir $RUNTIME_DIRECTORY mb --ignore-existing minio/${bucket};"))}
+          '';
+        };
+      };
+      timers."k3s-argocd-bootstrap" = lib.mkIf cfg.argocd.enable {
+        wantedBy = [ "timers.target" ];
+        timerConfig = {
+          OnBootSec = "2m";
+          OnUnitActiveSec = "3m";
+          Unit = "k3s-argocd-bootstrap.service";
+        };
+      };
+    };
+
+    systemd.services."k3s-argocd-bootstrap" = lib.mkIf cfg.argocd.enable {
       script = ''
         export PATH="$PATH:${pkgs.git}/bin"
         if ${pkgs.kubectl}/bin/kubectl get CustomResourceDefinition -A | grep -q "argoproj.io" ; then
@@ -161,7 +303,7 @@ in
       };
     };
 
-    systemd.timers."k3s-flux2-bootstrap" = lib.mkIf cfg.fluxBootstrap.enable {
+    systemd.timers."k3s-flux2-bootstrap" = lib.mkIf cfg.flux.enable {
       wantedBy = [ "timers.target" ];
       timerConfig = {
         OnBootSec = "2m";
@@ -170,7 +312,7 @@ in
       };
     };
 
-    systemd.services."k3s-flux2-bootstrap" = lib.mkIf cfg.fluxBootstrap.enable {
+    systemd.services."k3s-flux2-bootstrap" = lib.mkIf cfg.flux.enable {
       script = ''
         export PATH="$PATH:${pkgs.git}/bin"
         if ${pkgs.kubectl}/bin/kubectl get CustomResourceDefinition -A | grep -q "toolkit.fluxcd.io" ; then

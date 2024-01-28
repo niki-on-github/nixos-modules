@@ -27,6 +27,10 @@ in
   };
 
   config = mkEnableIfElse cfg.enable cfg.encrypt {
+    systemd.tmpfiles.rules = [
+      "d /boot/keys 0000 root root - -"
+      "z /boot/keys 0000 root root - -"
+    ];
     boot = {
       loader = {
         efi = {

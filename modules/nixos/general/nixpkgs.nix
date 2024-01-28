@@ -10,6 +10,7 @@
       git
       vim
       openssh
+      parted
     ];
   };
 

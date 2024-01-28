@@ -10,6 +10,16 @@ in
       default = false;
       description = "Enable KVM virtualisation.";
     };
+    cockpit.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Enable cockpit.";
+    };   
+    gui.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Enable GUI.";
+    };  
     vfioIds = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [ ];
@@ -33,6 +43,23 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+
+    services.cockpit = lib.mkIf cfg.cockpit.enable {
+      enable = true;
+      port = 9090;
+      openFirewall = true;
+      settings = {
+        WebService = {
+          AllowUnencrypted = true;
+        };
+      };
+    };
+
+    programs = {
+      dconf.enable = true;
+      virt-manager.enable = true;
+    };
+
     boot = {
       kernelModules = [
         "kvm-${cfg.platform}"
@@ -53,18 +80,41 @@ in
     systemd.tmpfiles.rules = [
       "f /dev/shm/looking-glass 0660 ${cfg.user} qemu-libvirtd -"
       "f /dev/shm/scream 0660 ${cfg.user} qemu-libvirtd -"
+      "d /var/lib/libvirt/images 0775 root qemu-libvirtd -"
     ];
 
-    environment.systemPackages = with pkgs; [
-      looking-glass-client
-      libvirt
-      virt-manager
-      swtpm
-      cdrtools
-      bridge-utils
-      dnsmasq
-      ebtables
-      dmidecode
+    # TODO does not work:
+    system.activationScripts.libvirt-default-pool.text = ''
+      ${pkgs.libvirt}/bin/virsh --connect qemu:///system pool-define-as default dir --target /var/lib/libvirt/images >/dev/null 2>&1 || true
+      ${pkgs.libvirt}/bin/virsh --connect qemu:///system pool-start default >/dev/null 2>&1 || true
+      ${pkgs.libvirt}/bin/virsh --connect qemu:///system pool-autostart default >/dev/null 2>&1 || true
+    '';
+
+    environment.systemPackages = with pkgs; lib.mkMerge [ 
+      [
+        libvirt
+        swtpm
+        cdrtools
+        bridge-utils
+        dnsmasq
+        ebtables
+        dmidecode
+        terraform
+        packer
+        virt-manager
+        libosinfo
+        osinfo-db
+        libxslt
+      ]
+      (lib.mkIf cfg.gui.enable [
+        looking-glass-client
+        virt-viewer
+      ])
+      (lib.mkIf cfg.cockpit.enable [
+        # nur.repos.dukzcry.cockpit-machines
+        cockpit-machines
+        libvirt-dbus
+      ])
     ];
 
     home-manager.users."${cfg.user}" = {
@@ -112,7 +162,7 @@ in
       };
     };
 
-    systemd.user.services.scream-ivshmem = {
+    systemd.user.services.scream-ivshmem = lib.mkIf cfg.gui.enable {
       enable = true;
       description = "Scream";
       serviceConfig = {

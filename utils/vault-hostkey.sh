@@ -9,7 +9,7 @@ fi
 
 TARGET="$1"; shift
 OPTION="$1"; shift
-VAULT_ADDR="https://vault.server01.lan"
+VAULT_ADDR="https://vault.k8s.lan"
 
 read -r -s -p 'vault token: ' vault_token
 echo "*****"

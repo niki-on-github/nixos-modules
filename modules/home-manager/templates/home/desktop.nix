@@ -47,11 +47,19 @@ in
   config = lib.mkIf cfg.enable ({
     
     home.file = builtins.listToAttrs dotfiles;
+
+    systemd.user.targets.tray = {
+  		Unit = {
+  			Description = "Home Manager System Tray";
+  			Requires = [ "graphical-session-pre.target" ];
+  		};
+  	};
   
     services = {
       udiskie = {
         enable = true;
         tray = "always";
+        automount = false;
       };
       mako = {
         enable = true;
@@ -103,8 +111,10 @@ in
       pulsemixer
       easyeffects
     ] ++ [
+      udiskie
       nixpkgs-unstable.alacritty
-      kitty
+      foot
+      tk
       meld
       mpc-cli
       mpv
@@ -119,6 +129,10 @@ in
       thunderbird
       vopono
       openvpn
+      krita
+      gparted
+      zathura
+      filezilla
     ];
   }   
   // import (./desktop-programs.nix) { inherit config lib pkgs; });

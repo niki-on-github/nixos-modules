@@ -9,7 +9,7 @@ fi
 TARGET="$1"; shift
 OPTION="$1"; shift
 SECRET_FILE=$1; shift
-VAULT_ADDR="https://vault.server01.lan"
+VAULT_ADDR="https://vault.k8s.lan"
 
 temp=$(mktemp -d)
 
@@ -33,15 +33,18 @@ curl -s -H "X-Vault-Token: $vault_token" "$VAULT_ADDR/v1/host/$TARGET" \
     | sed 's/\\n/\n/g' \
     > "$temp/ssh_host_ed25519_key"
 
+echo "key:"
+cat "$temp/ssh_host_ed25519_key"
+
 if [ "$OPTION" = "-e" ]; then
     age -e -R "$temp/ssh_host_ed25519_key.pub" -o "$temp/secret" "$SECRET_FILE"
     mv -f "$temp/secret" "$SECRET_FILE"
-    echo "OK"
+    echo "[OK] $SECRET_FILE is now encrypted"
 elif [ "$OPTION" = "-d" ]; then
     age -d -i "$temp/ssh_host_ed25519_key" -o "$temp/secret" "$SECRET_FILE"
     mv -f "$temp/secret" "$SECRET_FILE"
-    echo "OK"
+    echo "[OK] $SECRET_FILE is now decrypted"
 else
-    echo "invalid arg $OPTION"
+    echo "[ERROR] Invalid Arg $OPTION"
     exit 1
 fi

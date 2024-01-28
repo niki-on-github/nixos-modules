@@ -81,7 +81,7 @@ let
     };
   };
 
-  firefoxSettings = {
+  firefoxSettings = searchEngine: {
     "app.shield.optoutstudies.enabled" = false;
     "browser.contentblocking.category" = "custom";
     "browser.crashReports.unsubmittedCheck.autoSubmit2" = false;
@@ -95,17 +95,17 @@ let
     "browser.newtabpage.activity-stream.telemetry" = false;
     "browser.newtabpage.enabled" = true;
     "browser.ping-centre.telemetry" = false;
-    "browser.search.defaultenginename" = "Google";
+    "browser.search.defaultenginename" = "${searchEngine}";
     "browser.search.openintab" = true;
     "browser.search.region" = "DE";
-    "browser.search.selectedEngine" = "Google";
+    "browser.search.selectedEngine" = "${searchEngine}";
     "browser.startup.homepage" = "about:home";
     "browser.startup.page" = 1;
     "browser.theme.content-theme" = 0;
     "browser.theme.toolbar-theme" = 0;
     "browser.toolbars.bookmarks.visibility" = "always";
     "browser.uidensity" = 1;
-    "browser.urlbar.placeholderName" = "Google";
+    "browser.urlbar.placeholderName" = "${searchEngine}";
     "browser.urlbar.suggest.bookmark" = false;
     "browser.urlbar.suggest.history" = false;
     "browser.urlbar.suggest.openpage" = false;
@@ -146,16 +146,16 @@ let
 
   firefoxCoreExtensions = with pkgs.nur.repos.rycee.firefox-addons; [
     bitwarden
-    darkreader
     decentraleyes
     floccus
     ublock-origin
+    i-dont-care-about-cookies
   ];
 
   firefoxHardenedExtensions = with pkgs.nur.repos.rycee.firefox-addons; [
+    darkreader
     canvasblocker
     clearurls
-    i-dont-care-about-cookies
     multi-account-containers
     temporary-containers
     umatrix
@@ -163,6 +163,13 @@ let
 in
 {
   programs = {
+    vscode = {
+      enable = true;
+      extensions = with pkgs.vscode-extensions; [
+        vscodevim.vim
+        yzhang.markdown-all-in-one
+      ];
+    };
     git = {
       enable = true;
       lfs.enable = true;
@@ -175,6 +182,9 @@ in
         s = "status";
       };
       extraConfig = {
+        init = {
+          defaultBranch = "main";        
+        };
         credential = {
           helper = "cache --timeout=3600";
         };
@@ -190,6 +200,7 @@ in
         };
         push = {
           followTags = true;
+          autoSetupRemote = true;
         };
         pull = {
           rebase = false;
@@ -213,25 +224,31 @@ in
           id = 0;
           extensions = firefoxHardenedExtensions;
           search = firefoxSearchConfig;
-          settings = firefoxSettings;
+          settings = (firefoxSettings "Google");
         };
         private = {
           id = 1;
           extensions = firefoxHardenedExtensions;
           search = firefoxSearchConfig;
-          settings = firefoxSettings;
+          settings = (firefoxSettings "Google");
         };
         vpn = {
           id = 2;
           extensions = firefoxHardenedExtensions;
           search = firefoxSearchConfig;
-          settings = firefoxSettings;
+          settings = (firefoxSettings "DuckDuckGo");
         };
         banking = {
           id = 3;
           extensions = firefoxCoreExtensions;
           search = firefoxSearchConfig;
-          settings = firefoxSettings;
+          settings = (firefoxSettings "Google");
+        };
+        shopping = {
+          id = 4;
+          extensions = firefoxCoreExtensions;
+          search = firefoxSearchConfig;
+          settings = (firefoxSettings "Google");
         };
       };
     };

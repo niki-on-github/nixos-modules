@@ -11,6 +11,8 @@
     ./services/ssh.nix
     ./services/vsftpd.nix
     ./services/podman.nix
+    ./services/docker.nix
+    ./services/tailscale.nix
     ./system/setup.nix
     ./system/crypttab.nix
     ./system/desktop.nix
