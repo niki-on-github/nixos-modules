@@ -17,11 +17,21 @@ in
       settings = {
         k9s = {
           logger = {
-            tail = 1000;
-            buffer = 10000;
-            sinceSeconds = 86400;
+            tail = 100;
+            buffer = 5000;
+            sinceSeconds = 50000;
             textWrap = true;
             showTime = true;
+          };
+          thresholds = {
+            cpu = {
+              critical = 90;
+              warn = 80;
+            };
+            memory = {
+              critical = 90;
+              warn = 80;
+            };
           };
           cluster.default.namespace.active = "all";
         };

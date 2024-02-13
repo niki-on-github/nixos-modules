@@ -63,6 +63,7 @@ in
         trash-cli
         tree
         unrar
+        unzip
         usbutils
         zellij
         zoxide
