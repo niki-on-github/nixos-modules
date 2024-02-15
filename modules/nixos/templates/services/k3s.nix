@@ -30,16 +30,12 @@ in
       };    
     };
 
-    network = {
-      flannel = {  
-        enable = lib.mkOption {
-          type = lib.types.bool;
-          default = true;
-          description = ''
-            If enabled flannel network will be enabled on k3s cluster
-          '';
-        };    
-      };
+    network = lib.mkOption {
+      type = lib.types.str;
+      default = "flannel";
+      description = ''
+        network backend one of [flannel, cilium]
+      '';
     };
 
     argocd = {
@@ -67,7 +63,7 @@ in
         type = lib.types.bool;
         default = false;
         description = ''
-          If enabled nfs-server will be enabled on node
+          If enabled a localhost only nfs-server will be enabled on node
         '';
       };
       path = lib.mkOption {
@@ -129,6 +125,7 @@ in
         git
         go-task
         minio-client        
+        jq
         k9s
         krelay
         kubectl
@@ -238,7 +235,9 @@ in
           "--disable=traefik,local-storage,metrics-server${lib.strings.optionalString (!cfg.loadbalancer.enable) ",servicelb"}${lib.strings.optionalString (!cfg.coredns.enable) ",coredns"}"
           "--kubelet-arg=config=/etc/rancher/k3s/kubelet.config"
           "--kube-apiserver-arg='enable-admission-plugins=DefaultStorageClass,DefaultTolerationSeconds,LimitRanger,MutatingAdmissionWebhook,NamespaceLifecycle,NodeRestriction,PersistentVolumeClaimResize,Priority,ResourceQuota,ServiceAccount,TaintNodesByCondition,ValidatingAdmissionWebhook'"
-          "${lib.strings.optionalString (!cfg.network.flannel.enable) "--flannel-backend=none"}"
+          "${lib.strings.optionalString (cfg.network != "flannel") "--flannel-backend=none"}"
+          "${lib.strings.optionalString (cfg.network != "flannel") "--disable-network-policy"}"
+          "${lib.strings.optionalString (cfg.network == "cilium") "--kubelet-arg=register-with-taints=node.cilium.io/agent-not-ready:NoExecute"}"
         ];
       };
     };
@@ -274,6 +273,22 @@ in
           Unit = "k3s-argocd-bootstrap.service";
         };
       };
+      timers."k3s-cilium-bootstrap" = lib.mkIf (cfg.network == "cilium") {
+        wantedBy = [ "timers.target" ];
+        timerConfig = {
+          OnBootSec = "2m";
+          OnUnitActiveSec = "3m";
+          Unit = "k3s-cilium-bootstrap.service";
+        };
+      };
+      timers."k3s-flux2-bootstrap" = lib.mkIf cfg.flux.enable {
+        wantedBy = [ "timers.target" ];
+        timerConfig = {
+          OnBootSec = "2m";
+          OnUnitActiveSec = "3m";
+          Unit = "k3s-flux2-bootstrap.service";
+        };
+      };
     };
 
     systemd.services."k3s-argocd-bootstrap" = lib.mkIf cfg.argocd.enable {
@@ -303,12 +318,21 @@ in
       };
     };
 
-    systemd.timers."k3s-flux2-bootstrap" = lib.mkIf cfg.flux.enable {
-      wantedBy = [ "timers.target" ];
-      timerConfig = {
-        OnBootSec = "2m";
-        OnUnitActiveSec = "3m";
-        Unit = "k3s-flux2-bootstrap.service";
+    systemd.services."k3s-cilium-bootstrap" = lib.mkIf (cfg.network == "cilium") {
+      script = ''
+        export PATH="$PATH:${pkgs.git}/bin"
+        if ${pkgs.kubectl}/bin/kubectl get CustomResourceDefinition -A | grep -q "cilium.io" ; then
+          exit 0
+        fi
+        sleep 20
+        if ${pkgs.kubectl}/bin/kubectl get CustomResourceDefinition -A | grep -q "cilium.io" ; then
+          exit 0
+        fi
+        ${pkgs.cilium-cli}/bin/cilium install
+      '';
+      serviceConfig = {
+        Type = "oneshot";
+        User = "root";
       };
     };
 
