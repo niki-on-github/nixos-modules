@@ -74,14 +74,12 @@ in
       device = dev;
       type = "disk";
       content = {
-        type = "table";
-        format = "gpt";
-        partitions = [
-          {
-            name = "boot";
-            start = "1MiB";
-            end = "128MiB";
-            bootable = true;
+        type = "gpt";
+        partitions = {
+          ESP = {
+            label = "boot";
+            size = "512M";
+            type = "EF00";
             content = {
               type = "filesystem";
               format = "vfat";
@@ -91,11 +89,10 @@ in
                 "defaults"
               ];
             };
-          }
-          {
-            name = "luks_system";
-            start = "128MiB";
-            end = "100%";
+          };
+          luks_system = {
+            label = "luks_system";
+            size = "100%";
             content = {
               type = "luks";
               name = "system";
@@ -129,8 +126,8 @@ in
                 };
               };
             };
-          }
-        ];
+          };
+        };
       };
     });
     
@@ -162,14 +159,12 @@ in
       device = dev;
       type = "disk";
       content = {
-        type = "table";
-        format = "gpt";
-        partitions = [
-          {
-            name = "boot";
-            start = "1MiB";
-            end = "128MiB";
-            bootable = true;
+        type = "gpt";
+        partitions = {
+          ESP = {
+            label = "boot";
+            size = "512M";
+            type = "EF00";
             content = {
               type = "filesystem";
               format = "vfat";
@@ -179,11 +174,10 @@ in
                 "defaults"
               ];
             };
-          }
-          {
-            name = "system";
-            start = "128MiB";
-            end = "100%";
+          };
+          system = {
+            label = "system";
+            size = "100%";
             content = {
               type = "btrfs";
               extraArgs = [ "-f" ];
@@ -210,8 +204,8 @@ in
                 };
               };
             };
-          }
-        ];
+          };
+        };
       };
     });
   };

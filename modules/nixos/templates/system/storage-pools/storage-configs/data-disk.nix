@@ -5,13 +5,11 @@
         type = "disk";
         device = builtins.toPath device;
         content = {
-          type = "table";
-          format = "gpt";
+          type = "gpt";
           partitions = [
-            {
-              name = "luks_${label}";
-              start = "1MiB";
-              end = "100%";
+            "luks_${label}" = {
+              label = "luks_${label}";
+              size = "100%";
               content = {
                 type = "luks";
                 name = "${label}";
@@ -37,8 +35,8 @@
                   };
                 };
               };
-            }
-          ];
+            };
+          };
         };
       };
     };
