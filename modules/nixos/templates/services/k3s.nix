@@ -41,7 +41,7 @@ in
       cilium = {
         settings = lib.mkOption {
           type = lib.types.listOf lib.types.str;
-          default = ["ipam.operator.clusterPoolIPv4PodCIDRList=\"10.42.0.0/16\""];
+          default = ["ipam.mode=kubernetes" "ipam.operator.clusterPoolIPv4PodCIDRList=\"10.42.0.0/16\""];
           description = ''
             cilium install options
           '';
@@ -271,7 +271,7 @@ in
       timers."k3s-argocd-bootstrap" = lib.mkIf (cfg.gitops.toolkit == "argocd") {
         wantedBy = [ "timers.target" ];
         timerConfig = {
-          OnBootSec = "2m";
+          OnBootSec = "3m";
           OnUnitActiveSec = "3m";
           Unit = "k3s-argocd-bootstrap.service";
         };
@@ -279,7 +279,7 @@ in
       timers."k3s-cilium-bootstrap" = lib.mkIf (cfg.network.cni == "cilium") {
         wantedBy = [ "timers.target" ];
         timerConfig = {
-          OnBootSec = "2m";
+          OnBootSec = "3m";
           OnUnitActiveSec = "3m";
           Unit = "k3s-cilium-bootstrap.service";
         };
@@ -287,7 +287,7 @@ in
       timers."k3s-flux2-bootstrap" = lib.mkIf (cfg.gitops.toolkit == "flux") {
         wantedBy = [ "timers.target" ];
         timerConfig = {
-          OnBootSec = "2m";
+          OnBootSec = "3m";
           OnUnitActiveSec = "3m";
           Unit = "k3s-flux2-bootstrap.service";
         };
@@ -300,7 +300,7 @@ in
         if ${pkgs.kubectl}/bin/kubectl get CustomResourceDefinition -A | grep -q "argoproj.io" ; then
           exit 0
         fi
-        sleep 20
+        sleep 30
         if ${pkgs.kubectl}/bin/kubectl get CustomResourceDefinition -A | grep -q "argoproj.io" ; then
           exit 0
         fi
@@ -318,6 +318,7 @@ in
       serviceConfig = {
         Type = "oneshot";
         User = "root";
+        RestartSec = "3m";
       };
     };
 
@@ -327,7 +328,7 @@ in
         if ${pkgs.kubectl}/bin/kubectl get CustomResourceDefinition -A | grep -q "cilium.io" ; then
           exit 0
         fi
-        sleep 20
+        sleep 30
         if ${pkgs.kubectl}/bin/kubectl get CustomResourceDefinition -A | grep -q "cilium.io" ; then
           exit 0
         fi
@@ -336,6 +337,7 @@ in
       serviceConfig = {
         Type = "oneshot";
         User = "root";
+        RestartSec = "3m";
       };
     };
 
@@ -345,7 +347,7 @@ in
         if ${pkgs.kubectl}/bin/kubectl get CustomResourceDefinition -A | grep -q "toolkit.fluxcd.io" ; then
           exit 0
         fi
-        sleep 20
+        sleep 30
         if ${pkgs.kubectl}/bin/kubectl get CustomResourceDefinition -A | grep -q "toolkit.fluxcd.io" ; then
           exit 0
         fi
@@ -361,6 +363,7 @@ in
       serviceConfig = {
         Type = "oneshot";
         User = "root";
+        RestartSec = "3m";
       };
     };
   };

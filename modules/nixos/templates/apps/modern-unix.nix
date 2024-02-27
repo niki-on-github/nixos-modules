@@ -35,6 +35,7 @@ in
         icoutils
         imagemagick
         jq
+        restic
         p7zip
         kubectl
         lame

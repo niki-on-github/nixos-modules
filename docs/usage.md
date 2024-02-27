@@ -121,8 +121,18 @@ sudo nix --extra-experimental-features nix-command --extra-experimental-features
 sudo nixos-install --root /mnt --flake '.#$TARGET'
 ```
 
+When installing from arch linux you need to first run `mount -o remount,size=2G /run/archiso/cowspace` to have enough space.
+
 #### Update
 
 ```bash
 sudo nixos-rebuild switch --flake ".#$TARGET" --upgrade
+
 ```
+
+For complexer systems i recommend to switch after boot via:
+
+```sh
+sudo nixos-rebuild boot --flake ".#$TARGET" --upgrade
+```
+

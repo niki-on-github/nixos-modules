@@ -1,4 +1,4 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, nixpkgs-unstable, ... }:
 with lib;
 let
   cfg = config.templates.services.kvm;
@@ -83,12 +83,22 @@ in
       "d /var/lib/libvirt/images 0775 root qemu-libvirtd -"
     ];
 
-    # TODO does not work:
-    system.activationScripts.libvirt-default-pool.text = ''
-      ${pkgs.libvirt}/bin/virsh --connect qemu:///system pool-define-as default dir --target /var/lib/libvirt/images >/dev/null 2>&1 || true
-      ${pkgs.libvirt}/bin/virsh --connect qemu:///system pool-start default >/dev/null 2>&1 || true
-      ${pkgs.libvirt}/bin/virsh --connect qemu:///system pool-autostart default >/dev/null 2>&1 || true
-    '';
+    systemd.services."libvirt-default-pool" = {
+      wantedBy = [ "multi-user.target" ];
+      requires = [  "libvirtd.service" ];
+      script = ''
+        ${pkgs.coreutils}/bin/sleep 30
+        ${pkgs.libvirt}/bin/virsh --connect qemu:///system pool-define-as default dir --target /var/lib/libvirt/images >/dev/null 2>&1 || true
+        ${pkgs.libvirt}/bin/virsh --connect qemu:///system pool-start default >/dev/null 2>&1 || true
+        ${pkgs.libvirt}/bin/virsh --connect qemu:///system pool-autostart default >/dev/null 2>&1 || true
+      '';
+      serviceConfig = {
+        Type = "oneshot";
+        User = "root";
+        RestartSec = "1m";
+        RemainAfterExit = true;
+      };
+    };
 
     environment.systemPackages = with pkgs; lib.mkMerge [ 
       [
@@ -105,6 +115,7 @@ in
         libosinfo
         osinfo-db
         libxslt
+        quickemu
       ]
       (lib.mkIf cfg.gui.enable [
         looking-glass-client

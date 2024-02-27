@@ -113,6 +113,7 @@ in
     ] ++ [
       udiskie
       nixpkgs-unstable.alacritty
+      nixpkgs-unstable.goldwarden
       foot
       tk
       meld
@@ -133,6 +134,7 @@ in
       gparted
       zathura
       filezilla
+      restic-browser
     ];
   }   
   // import (./desktop-programs.nix) { inherit config lib pkgs; });
