@@ -20,6 +20,11 @@ in
       default = false;
       description = "Enable display manager services.";
     };
+    portals = lib.mkOption {
+      type = lib.types.listOf lib.types.package;
+      default = [ pkgs.xdg-desktop-portal-gtk ];
+      description = "xdg destkop portals";
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -98,7 +103,7 @@ in
     xdg.portal = {
       enable = true;
       wlr.enable = true;
-      extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
+      extraPortals = cfg.portals;
     };
 
     security.rtkit.enable = true;
