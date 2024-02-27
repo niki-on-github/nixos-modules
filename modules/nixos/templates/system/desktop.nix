@@ -100,6 +100,7 @@ in
       thunar.enable = true;
     };
 
+    xdg.autostart.enable = true;
     xdg.portal = {
       enable = true;
       wlr.enable = true;
