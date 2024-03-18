@@ -39,6 +39,13 @@ in
         '';
       };   
       cilium = {
+        version = lib.mkOption {
+          type = lib.types.str;
+          default = "v1.14.2";
+          description = ''
+            cilium version
+          '';
+        };   
         settings = lib.mkOption {
           type = lib.types.listOf lib.types.str;
           default = ["ipam.mode=kubernetes" "ipam.operator.clusterPoolIPv4PodCIDRList=\"10.42.0.0/16\""];
@@ -147,16 +154,22 @@ in
             y|Y|yes|Yes) echo "nuke k3s...";;
             *) exit 0;;
           esac
+          systemctl stop k3s-cilium-bootstrap.timer || true
+          systemctl stop k3s-cilium-bootstrap.service || true
           if command -v flux; then
+            systemctl stop k3s-flux2-bootstrap.timer || true
+            systemctl stop k3s-flux2-bootstrap.service || true
             flux uninstall -s
           fi
           kubectl delete deployments --all=true -A
           kubectl delete statefulsets --all=true -A  
           kubectl delete ns --all=true -A    
           kubectl get ns | tail -n +2 | cut -d ' ' -f 1 | xargs -I{} kubectl delete pods --all=true --force=true -n {}
+          cilium uninstall || true
           echo "wait until objects are deleted..."
-          sleep 30
+          sleep 28
           systemctl stop k3s
+          sleep 2
           rm -rf /var/lib/rancher/k3s/
           rm -rf /var/lib/cni/networks/cbr0/
           if [ -d /opt/k3s/data/temp ]; then
@@ -203,11 +216,40 @@ in
       "fs.inotify.max_user_watches" = 524288;
     };
 
-    networking.firewall.allowedTCPPorts = lib.mkMerge [
-      [ 80 222 443 445 6443 8080 10250 ]
-      (lib.mkIf cfg.addons.nfs.enable [ 2049 ])
-      (lib.mkIf cfg.addons.minio.enable [ 9000 9001 ])
-    ];
+    networking.firewall = {
+      allowedTCPPorts = lib.mkMerge [
+        [ 
+          80 # http
+          222 # git ssh
+          443 # https
+          445 # samba
+          6443 # kubernetes api
+          8080 # reserved http
+          10250 # k3s metrics
+        ]
+        (lib.mkIf cfg.addons.nfs.enable [ 2049 ])
+        (lib.mkIf cfg.addons.minio.enable [ 9000 9001 ])
+        (lib.mkIf (cfg.network.cni == "cilium") [ 
+          4240 # health check
+          4244 # hubble server
+          4245 # hubble relay
+          9962 # agent prometheus metrics
+          9963 # operator prometheus metrics
+          9964 # envoy prometheus metrics
+        ])
+      ];
+      allowedUDPPorts = lib.mkMerge [
+        (lib.mkIf (cfg.network.cni == "cilium") [ 
+          8472 # VXLAN overlay
+        ])
+      ];
+      allowedTCPPortRanges = [
+        {
+          from = 2379;
+          to = 2380;
+        } # etcd
+      ];
+    };
 
     services = {
       prometheus.exporters.node = {
@@ -231,15 +273,21 @@ in
       };
       k3s = {
         enable = true; 
-        package = pkgs.k3s;
         role = "server";
         environmentFile = "/etc/rancher/k3s/k3s.service.env";
         extraFlags = toString [
           "--disable=traefik,local-storage,metrics-server${lib.strings.optionalString (!cfg.loadbalancer.enable) ",servicelb"}${lib.strings.optionalString (!cfg.coredns.enable) ",coredns"}"
           "--kubelet-arg=config=/etc/rancher/k3s/kubelet.config"
           "--kube-apiserver-arg='enable-admission-plugins=DefaultStorageClass,DefaultTolerationSeconds,LimitRanger,MutatingAdmissionWebhook,NamespaceLifecycle,NodeRestriction,PersistentVolumeClaimResize,Priority,ResourceQuota,ServiceAccount,TaintNodesByCondition,ValidatingAdmissionWebhook'"
+          "--node-label \"k3s-upgrade=false\""
+          "--kube-apiserver-arg anonymous-auth=true"
+          "--kube-controller-manager-arg bind-address=0.0.0.0"
+          "--kube-scheduler-arg bind-address=0.0.0.0"
+          "--secrets-encryption"
+          "--etcd-expose-metrics"
           "${lib.strings.optionalString (cfg.network.cni != "flannel") "--flannel-backend=none"}"
           "${lib.strings.optionalString (cfg.network.cni != "flannel") "--disable-network-policy"}"
+          "${lib.strings.optionalString ((cfg.network.cni == "cilium") && (builtins.elem "kubeProxyReplacement=true" cfg.network.cilium.settings)) "--disable-kube-proxy"}"
           "${lib.strings.optionalString (cfg.network.cni == "cilium") "--kubelet-arg=register-with-taints=node.cilium.io/agent-not-ready:NoExecute"}"
         ];
       };
@@ -332,7 +380,7 @@ in
         if ${pkgs.kubectl}/bin/kubectl get CustomResourceDefinition -A | grep -q "cilium.io" ; then
           exit 0
         fi
-        ${pkgs.cilium-cli}/bin/cilium install ${toString (lib.forEach cfg.network.cilium.settings (s: ''--set ${s} ''))}
+        ${pkgs.cilium-cli}/bin/cilium install --version ${cfg.network.cilium.version} ${toString (lib.forEach cfg.network.cilium.settings (s: ''--set ${s} ''))}
       '';
       serviceConfig = {
         Type = "oneshot";
@@ -357,6 +405,17 @@ in
         kind: Kustomization
         resources:
           - github.com/fluxcd/flux2/manifests/install
+        patches:
+          # Remove the default network policies
+          - patch: |-
+              \$patch: delete
+              apiVersion: networking.k8s.io/v1
+              kind: NetworkPolicy
+              metadata:
+                name: not-used
+            target:
+              group: networking.k8s.io
+              kind: NetworkPolicy
         EOL
         ${pkgs.kubectl}/bin/kubectl apply --kustomize /tmp/k3s-flux2-bootstrap
       '';

@@ -110,6 +110,12 @@ in
       pavucontrol
       pulsemixer
       easyeffects
+      mp3splt
+      mp3info
+      playerctl
+      lame
+    ] ++ [
+      imagemagick
     ] ++ [
       udiskie
       nixpkgs-unstable.alacritty

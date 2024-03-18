@@ -33,24 +33,20 @@ in
         fzf
         gping
         icoutils
-        imagemagick
         jq
+        ncdu
         restic
         p7zip
         kubectl
-        lame
         lf
         lsd
         mcfly
         mediainfo
-        mp3info
-        mp3splt
         nixpkgs-unstable.helix
         nixpkgs-unstable.yazi
         openssl
         parallel
         pciutils
-        playerctl
         procs
         rclone
         ripgrep
