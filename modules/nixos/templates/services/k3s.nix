@@ -10,62 +10,104 @@ in
       description = "Enable Single Node K3S Cluster.";
     };
 
-    coredns = {  
-      enable = lib.mkOption {
+    bootstrap = {
+      helm = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = "Enable Helm bootsrap service for K3S Cluster.";
+        };
+        completedIf = lib.mkOption {
+          type = lib.types.str;
+          description = ''
+             kubectl command condition meet when bootstrap is completed
+          '';
+        };
+        helmfile = lib.mkOption {
+          type = lib.types.str;
+          description = ''
+            Path to bootstrap helmfile
+          '';
+        };
+      };
+    };
+
+    prepare = {
+      cilium = lib.mkOption {  
+        type = lib.types.bool;
+        default = false;
+        description = ''
+          Set required preconditions to install cilium to k3s cluster
+        '';
+      };
+    };
+
+    services = {
+      coredns = lib.mkOption {  
         type = lib.types.bool;
         default = true;
         description = ''
           If enabled coredns will be installed to k3s cluster
         '';
-      };    
-    };
+      };
 
-    loadbalancer = {  
-      enable = lib.mkOption {
+      kube-proxy = lib.mkOption {  
+        type = lib.types.bool;
+        default = true;
+        description = ''
+          If enabled k3s kube-proxy will be enabled on k3s cluster
+        '';
+      };
+
+      flannel = lib.mkOption {  
+        type = lib.types.bool;
+        default = true;
+        description = ''
+          If enabled flannel will be enabled on k3s cluster
+        '';
+      };      
+      
+      flux = lib.mkOption {  
+        type = lib.types.bool;
+        default = true;
+        description = ''
+          If enabled flux will be installed to k3s cluster
+        '';
+      };
+      
+      servicelb = lib.mkOption {  
         type = lib.types.bool;
         default = false;
         description = ''
           If enabled klipper-lb will be enabled on k3s cluster
         '';
-      };    
-    };
+      };
 
-   network = {  
-      cni = lib.mkOption {
-        type = lib.types.str;
-        default = "flannel";
+      traefik = lib.mkOption {  
+        type = lib.types.bool;
+        default = false;
         description = ''
-          network backend one of [flannel, cilium]
+          If enabled traefik will be enabled on k3s cluster
         '';
-      };   
-      cilium = {
-        version = lib.mkOption {
-          type = lib.types.str;
-          default = "v1.14.2";
-          description = ''
-            cilium version
-          '';
-        };   
-        settings = lib.mkOption {
-          type = lib.types.listOf lib.types.str;
-          default = ["ipam.mode=kubernetes" "ipam.operator.clusterPoolIPv4PodCIDRList=\"10.42.0.0/16\""];
-          description = ''
-            cilium install options
-          '';
-        };
+      };
+
+      local-storage = lib.mkOption {  
+        type = lib.types.bool;
+        default = false;
+        description = ''
+          If enabled local-storage will be enabled on k3s cluster
+        '';
+      };
+
+      metrics-server = lib.mkOption {  
+        type = lib.types.bool;
+        default = false;
+        description = ''
+          If enabled metrics-server will be enabled on k3s cluster
+        '';
       };
     };
     
-    gitops = {
-      toolkit = lib.mkOption {
-        type = lib.types.str;
-        default = "flux";
-        description = ''
-          gitops toolkit one of [flux, argocd]
-        '';
-      };   
-    };
-
     addons = {
       nfs = {
         enable = lib.mkOption {
@@ -124,14 +166,60 @@ in
     };
   };
 
-  config = lib.mkIf cfg.enable {
+  config = let
+    k3sAdmissionPlugins = [
+      "DefaultStorageClass"
+      "DefaultTolerationSeconds"
+      "LimitRanger"
+      "MutatingAdmissionWebhook"
+      "NamespaceLifecycle"
+      "NodeRestriction"
+      "PersistentVolumeClaimResize"
+      "Priority"
+      "ResourceQuota"
+      "ServiceAccount"
+      "TaintNodesByCondition"
+      "ValidatingAdmissionWebhook"
+    ];
+    k3sDisabledServices = [] 
+      ++ lib.optionals (cfg.services.flannel == false) [ "flannel" ]
+      ++ lib.optionals (cfg.services.servicelb == false) [ "servicelb" ]
+      ++ lib.optionals (cfg.services.coredns == false) [ "coredns" ]
+      ++ lib.optionals (cfg.services.local-storage == false) [ "local-storage" ]
+      ++ lib.optionals (cfg.services.metrics-server == false) [ "metrics-server" ]
+      ++ lib.optionals (cfg.services.traefik == false) [ "traefik" ]
+    ;
+    k3sExtraFlags = [ 
+      "--kubelet-arg=config=/etc/rancher/k3s/kubelet.config"
+      "--node-label \"k3s-upgrade=false\""
+      "--kube-apiserver-arg anonymous-auth=true"
+      "--kube-controller-manager-arg bind-address=0.0.0.0"
+      "--kube-scheduler-arg bind-address=0.0.0.0"
+      "--etcd-expose-metrics"
+      "--secrets-encryption"
+      "--write-kubeconfig-mode 0644"
+      "--kube-apiserver-arg='enable-admission-plugins=${lib.concatStringsSep "," k3sAdmissionPlugins}'"
+    ] ++ lib.lists.optionals (cfg.services.flannel == false) [ 
+      "--flannel-backend=none" 
+      "--disable-network-policy"
+    ] ++ lib.optionals (cfg.services.kube-proxy == false) [ 
+      "--disable-cloud-controller"
+      "--disable-kube-proxy"
+    ] ++ lib.optionals cfg.prepare.cilium [ 
+      "--kubelet-arg=register-with-taints=node.cilium.io/agent-not-ready:NoExecute"
+    ];
+    k3sDisableFlags = builtins.map (service: "--disable ${service}") k3sDisabledServices;
+    k3sCombinedFlags = lib.concatLists [k3sDisableFlags k3sExtraFlags];
+  in
+    lib.mkIf cfg.enable {
 
     environment = {
       systemPackages = with pkgs; [
         age
-        argocd
         cilium-cli
         fluxcd
+        kubernetes-helm
+        helmfile
         git
         go-task
         minio-client        
@@ -154,13 +242,11 @@ in
             y|Y|yes|Yes) echo "nuke k3s...";;
             *) exit 0;;
           esac
-          systemctl stop k3s-cilium-bootstrap.timer || true
-          systemctl stop k3s-cilium-bootstrap.service || true
-          if command -v flux; then
-            systemctl stop k3s-flux2-bootstrap.timer || true
-            systemctl stop k3s-flux2-bootstrap.service || true
-            flux uninstall -s
-          fi
+          systemctl stop k3s-bootstrap.timer || true
+          systemctl stop k3s-bootstrap.service || true
+          systemctl stop k3s-flux2-bootstrap.timer || true
+          systemctl stop k3s-flux2-bootstrap.service || true
+          flux uninstall -s || true
           kubectl delete deployments --all=true -A
           kubectl delete statefulsets --all=true -A  
           kubectl delete ns --all=true -A    
@@ -229,7 +315,7 @@ in
         ]
         (lib.mkIf cfg.addons.nfs.enable [ 2049 ])
         (lib.mkIf cfg.addons.minio.enable [ 9000 9001 ])
-        (lib.mkIf (cfg.network.cni == "cilium") [ 
+        (lib.mkIf cfg.prepare.cilium [ 
           4240 # health check
           4244 # hubble server
           4245 # hubble relay
@@ -239,7 +325,7 @@ in
         ])
       ];
       allowedUDPPorts = lib.mkMerge [
-        (lib.mkIf (cfg.network.cni == "cilium") [ 
+        (lib.mkIf cfg.prepare.cilium [ 
           8472 # VXLAN overlay
         ])
       ];
@@ -275,21 +361,7 @@ in
         enable = true; 
         role = "server";
         environmentFile = "/etc/rancher/k3s/k3s.service.env";
-        extraFlags = toString [
-          "--disable=traefik,local-storage,metrics-server${lib.strings.optionalString (!cfg.loadbalancer.enable) ",servicelb"}${lib.strings.optionalString (!cfg.coredns.enable) ",coredns"}"
-          "--kubelet-arg=config=/etc/rancher/k3s/kubelet.config"
-          "--kube-apiserver-arg='enable-admission-plugins=DefaultStorageClass,DefaultTolerationSeconds,LimitRanger,MutatingAdmissionWebhook,NamespaceLifecycle,NodeRestriction,PersistentVolumeClaimResize,Priority,ResourceQuota,ServiceAccount,TaintNodesByCondition,ValidatingAdmissionWebhook'"
-          "--node-label \"k3s-upgrade=false\""
-          "--kube-apiserver-arg anonymous-auth=true"
-          "--kube-controller-manager-arg bind-address=0.0.0.0"
-          "--kube-scheduler-arg bind-address=0.0.0.0"
-          "--secrets-encryption"
-          "--etcd-expose-metrics"
-          "${lib.strings.optionalString (cfg.network.cni != "flannel") "--flannel-backend=none"}"
-          "${lib.strings.optionalString (cfg.network.cni != "flannel") "--disable-network-policy"}"
-          "${lib.strings.optionalString ((cfg.network.cni == "cilium") && (builtins.elem "kubeProxyReplacement=true" cfg.network.cilium.settings)) "--disable-kube-proxy"}"
-          "${lib.strings.optionalString (cfg.network.cni == "cilium") "--kubelet-arg=register-with-taints=node.cilium.io/agent-not-ready:NoExecute"}"
-        ];
+        extraFlags = lib.concatStringsSep " " k3sCombinedFlags;
       };
     };
 
@@ -316,23 +388,15 @@ in
           '';
         };
       };
-      timers."k3s-argocd-bootstrap" = lib.mkIf (cfg.gitops.toolkit == "argocd") {
+      timers."k3s-helm-bootstrap" = lib.mkIf cfg.bootstrap.helm.enable {
         wantedBy = [ "timers.target" ];
         timerConfig = {
           OnBootSec = "3m";
           OnUnitActiveSec = "3m";
-          Unit = "k3s-argocd-bootstrap.service";
+          Unit = "k3s-helm-bootstrap.service";
         };
       };
-      timers."k3s-cilium-bootstrap" = lib.mkIf (cfg.network.cni == "cilium") {
-        wantedBy = [ "timers.target" ];
-        timerConfig = {
-          OnBootSec = "3m";
-          OnUnitActiveSec = "3m";
-          Unit = "k3s-cilium-bootstrap.service";
-        };
-      };
-      timers."k3s-flux2-bootstrap" = lib.mkIf (cfg.gitops.toolkit == "flux") {
+      timers."k3s-flux2-bootstrap" = lib.mkIf cfg.services.flux {
         wantedBy = [ "timers.target" ];
         timerConfig = {
           OnBootSec = "3m";
@@ -342,26 +406,17 @@ in
       };
     };
 
-    systemd.services."k3s-argocd-bootstrap" = lib.mkIf (cfg.gitops.toolkit == "argocd") {
+    systemd.services."k3s-helm-bootstrap" = lib.mkIf cfg.bootstrap.helm.enable {
       script = ''
-        export PATH="$PATH:${pkgs.git}/bin"
-        if ${pkgs.kubectl}/bin/kubectl get CustomResourceDefinition -A | grep -q "argoproj.io" ; then
+        export PATH="$PATH:${pkgs.git}/bin:${pkgs.kubernetes-helm}/bin"
+        if ${pkgs.kubectl}/bin/kubectl ${cfg.bootstrap.helm.completedIf} ; then
           exit 0
         fi
         sleep 30
-        if ${pkgs.kubectl}/bin/kubectl get CustomResourceDefinition -A | grep -q "argoproj.io" ; then
+        if ${pkgs.kubectl}/bin/kubectl ${cfg.bootstrap.helm.completedIf} ; then
           exit 0
         fi
-        mkdir -p /tmp/k3s-argocd-bootstrap
-        cat > /tmp/k3s-argocd-bootstrap/kustomization.yaml << EOL
-        apiVersion: kustomize.config.k8s.io/v1beta1
-        kind: Kustomization
-        namespace: argocd
-        resources:
-          - https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-        EOL
-        ${pkgs.kubectl}/bin/kubectl create namespace argocd || true
-        ${pkgs.kubectl}/bin/kubectl apply --kustomize /tmp/k3s-argocd-bootstrap
+        ${pkgs.helmfile}/bin/helmfile --quiet --file ${cfg.bootstrap.helm.helmfile} apply --skip-diff-on-install --suppress-diff
       '';
       serviceConfig = {
         Type = "oneshot";
@@ -370,26 +425,7 @@ in
       };
     };
 
-    systemd.services."k3s-cilium-bootstrap" = lib.mkIf (cfg.network.cni == "cilium") {
-      script = ''
-        export PATH="$PATH:${pkgs.git}/bin"
-        if ${pkgs.kubectl}/bin/kubectl get CustomResourceDefinition -A | grep -q "cilium.io" ; then
-          exit 0
-        fi
-        sleep 30
-        if ${pkgs.kubectl}/bin/kubectl get CustomResourceDefinition -A | grep -q "cilium.io" ; then
-          exit 0
-        fi
-        ${pkgs.cilium-cli}/bin/cilium install --version ${cfg.network.cilium.version} ${toString (lib.forEach cfg.network.cilium.settings (s: ''--set ${s} ''))}
-      '';
-      serviceConfig = {
-        Type = "oneshot";
-        User = "root";
-        RestartSec = "3m";
-      };
-    };
-
-    systemd.services."k3s-flux2-bootstrap" = lib.mkIf (cfg.gitops.toolkit == "flux") {
+    systemd.services."k3s-flux2-bootstrap" = lib.mkIf cfg.services.flux {
       script = ''
         export PATH="$PATH:${pkgs.git}/bin"
         if ${pkgs.kubectl}/bin/kubectl get CustomResourceDefinition -A | grep -q "toolkit.fluxcd.io" ; then
