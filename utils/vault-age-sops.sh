@@ -3,6 +3,9 @@
 if [ "$#" -lt 2 ]; then
     echo "ERROR: Illegal number of parameters $# ($*)"
     echo "Usage: nix run '.#vault-age-sops' -- \$TARGET [sops|export] [\$ARGS]"
+    echo "Examples:"
+    echo " - nix run '.#vault-age-sops' -- \$TARGET sops -d -i \$FILE"
+    echo " - nix run '.#vault-age-sops' -- \$TARGET sops \$FILE"
     exit 1
 fi
 

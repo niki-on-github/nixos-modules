@@ -31,6 +31,9 @@ in
         fd
         file
         fzf
+        lftp
+        wget
+        inetutils
         gping
         icoutils
         jq

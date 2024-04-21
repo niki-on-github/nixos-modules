@@ -4,6 +4,10 @@
 if [ "$#" -lt 2 ]; then
     echo "ERROR: Illegal number of parameters $# ($*)"
     echo "Usage: nix run '.#vault-hostkey' -- \$TARGET [-g/-e/-u] \$ARGS"
+    echo "Examples:"
+    echo " - nix run '.#vault-hostkey' -- \$TARGET -g"
+    echo " - nix run '.#vault-hostkey' -- \$TARGET -e"
+    echo " - nix run '.#vault-hostkey' -- \$TARGET -u nix@\$IP"
     exit 1
 fi
 

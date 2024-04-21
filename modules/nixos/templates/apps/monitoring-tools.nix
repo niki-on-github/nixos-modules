@@ -16,6 +16,7 @@ in
     environment.systemPackages = with pkgs; [
       hddtemp
       htop
+      apcupsd
       inotify-tools
       iotop
       lm_sensors

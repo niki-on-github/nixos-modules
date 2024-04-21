@@ -205,6 +205,10 @@ in
         pull = {
           rebase = false;
         };
+        rerere = {
+          # reuse merged conflicts, never require to merge again
+          enabled = true;
+        };
       };
     };
     zsh = {

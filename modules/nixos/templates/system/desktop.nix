@@ -35,7 +35,6 @@ in
         jetbrains-mono
         hasklig
         hack-font
-        nerdfonts
 
         material-design-icons
         material-icons
@@ -60,6 +59,12 @@ in
         source-code-pro
         symbola
         liberation_ttf
+
+        (nerdfonts.override { fonts = [
+          "JetBrainsMono"
+          "SourceCodePro"
+          "Hack"
+        ]; })
       ];
     };
 

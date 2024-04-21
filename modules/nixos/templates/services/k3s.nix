@@ -242,8 +242,8 @@ in
             y|Y|yes|Yes) echo "nuke k3s...";;
             *) exit 0;;
           esac
-          systemctl stop k3s-bootstrap.timer || true
-          systemctl stop k3s-bootstrap.service || true
+          systemctl stop k3s-helm-bootstrap.timer || true
+          systemctl stop k3s-helm-bootstrap.service || true
           systemctl stop k3s-flux2-bootstrap.timer || true
           systemctl stop k3s-flux2-bootstrap.service || true
           flux uninstall -s || true
