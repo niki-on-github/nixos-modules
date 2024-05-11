@@ -1,6 +1,7 @@
 {
   imports = [
     ./boot.nix
+    ./cache.nix
     ./locale.nix
     ./nix.nix
     ./nixpkgs.nix

@@ -1,4 +1,4 @@
-{ lib, config, pkgs, inputs, ... }:
+{ lib, config, pkgs, nixpkgs-unstable, ... }:
 {
   nixpkgs.config = {
     allowUnfree = true;
@@ -9,6 +9,8 @@
     systemPackages = with pkgs; [
       git
       vim
+      nixpkgs-unstable.nh
+      nixpkgs-unstable.attic-client
       openssh
       parted
     ];

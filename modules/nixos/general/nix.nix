@@ -1,7 +1,8 @@
 { pkgs, ... }:
 {
   nix = {
-    package = pkgs.nixUnstable;
+    # TODO enable this when all machines are updated 
+    # package = pkgs.nixVersions.latest;
     extraOptions = ''
       experimental-features = nix-command flakes
       keep-outputs = true

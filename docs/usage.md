@@ -44,6 +44,10 @@ Example flake config:
 
     personalModules = {
       url = "git+https://git.server01.lan/r/nixos-modules.git";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.nixpkgs-unstable.follows = "nixpkgs-unstable";
+      inputs.home-manager.follows = "home-manager";
+      inputs.nur.follows = "nur";
     };
   };
 

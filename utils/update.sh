@@ -13,7 +13,7 @@ TARGET="$1"; shift
 if [ "$#" -lt 1 ]; then
     read -r -p 'Update local system, confirm with yes (y/N): ' choice
     case "$choice" in
-        y|Y|yes|Yes) exec sudo nixos-rebuild switch --flake ".#$TARGET" --upgrade;;
+        y|Y|yes|Yes) exec sudo nixos-rebuild boot --flake ".#$TARGET" --upgrade;;
         *) exit 0;;
     esac
 fi
@@ -21,5 +21,5 @@ fi
 HOSTNAME="$1"; shift
 
 if [ -n "$HOSTNAME" ]; then
-    nix --extra-experimental-features nix-command --extra-experimental-features flakes run "github:serokell/deploy-rs/$DEPLOY_RS_COMMIT" ".#$TARGET" -- --hostname "$HOSTNAME"
+    nix --extra-experimental-features nix-command --extra-experimental-features flakes run "github:serokell/deploy-rs/$DEPLOY_RS_COMMIT" ".#$TARGET" -- --boot --hostname "$HOSTNAME"
 fi

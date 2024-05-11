@@ -2,6 +2,7 @@
   imports = [
     ./apps/modern-unix.nix
     ./apps/monitoring-tools.nix
+    ./hardware/nvidia.nix
     ./services/k3s.nix
     ./services/kvm.nix
     ./services/nvidia-docker.nix
