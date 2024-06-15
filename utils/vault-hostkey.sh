@@ -68,7 +68,7 @@ elif [ "$OPTION" = "-u" ]; then
     tree -p -a "$temp"
     eval "scp -r $temp $1:/tmp"
     # shellcheck disable=SC2029
-    ssh -t "$1" eval "sudo mv $temp/etc/ssh/* /etc/ssh"
+    ssh -t "$1" eval "sudo mv -f $temp/etc/ssh/* /etc/ssh"
 else
     echo "invalid arg $OPTION"
     exit 1

@@ -10,11 +10,6 @@ in
       default = false;
       description = "Enable KVM virtualisation.";
     };
-    cockpit.enable = lib.mkOption {
-      type = lib.types.bool;
-      default = false;
-      description = "Enable cockpit.";
-    };   
     gui.enable = lib.mkOption {
       type = lib.types.bool;
       default = false;
@@ -43,18 +38,6 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-
-    services.cockpit = lib.mkIf cfg.cockpit.enable {
-      enable = true;
-      port = 9090;
-      openFirewall = true;
-      settings = {
-        WebService = {
-          AllowUnencrypted = true;
-        };
-      };
-    };
-
     programs = {
       dconf.enable = true;
       virt-manager.enable = true;
@@ -115,16 +98,13 @@ in
         libosinfo
         osinfo-db
         libxslt
-        quickemu
+        (quickemu.override { qemu = qemu_full; })
+        nixos-generators
+        virtnbdbackup
       ]
       (lib.mkIf cfg.gui.enable [
         looking-glass-client
         virt-viewer
-      ])
-      (lib.mkIf cfg.cockpit.enable [
-        # nur.repos.dukzcry.cockpit-machines
-        cockpit-machines
-        libvirt-dbus
       ])
     ];
 
@@ -149,7 +129,7 @@ in
         onShutdown = "shutdown";
 
         qemu = {
-          package = pkgs.qemu_kvm;
+          package = pkgs.qemu_full;
           ovmf.enable = true;
           swtpm.enable = true;
           runAsRoot = false;

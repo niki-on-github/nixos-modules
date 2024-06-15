@@ -12,8 +12,8 @@
     let
       lib = nixpkgs.lib;
       system = "x86_64-linux";
-      pkgs = import nixpkgs { inherit system; };
-      unstable = import nixpkgs-unstable { inherit system; };
+      pkgs = import nixpkgs { inherit system; config.allowUnfree = true; };
+      unstable = import nixpkgs-unstable { inherit system; config.allowUnfree = true; };
 
       filterFileType = type: file:
         (lib.filterAttrs (name: type': type == type') file);
@@ -63,7 +63,7 @@
           jq
           sops
           ssh-to-age
-          vault
+          unstable.vault
         ];
       };
 
@@ -86,7 +86,7 @@
           jq
           openssh
           tree
-          vault
+          unstable.vault
         ];
         text = builtins.readFile ./utils/vault-hostkey.sh;
       };

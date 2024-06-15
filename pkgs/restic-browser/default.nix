@@ -24,7 +24,7 @@ let
     };
     npmDepsHash = "sha256-i92LlC9/04x9vXoyo+TVc3yCiaOCgvE//lT6cJZuoBk=";
     buildInputs = with pkgs; [
-      nodejs_21
+      nodejs_22
       typescript
     ];
     installPhase = ''

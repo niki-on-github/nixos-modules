@@ -103,8 +103,6 @@ in
       wlr-randr
       nixpkgs-unstable.waybar
       wtype
-      swaylock-effects
-      swayidle
     ] ++ [
       pamixer
       pavucontrol
@@ -132,6 +130,7 @@ in
       android-file-transfer
       newsboat
       obs-studio
+      nixpkgs-unstable.freerdp3
       nur.repos.nltch.spotify-adblock
       thunderbird
       vopono

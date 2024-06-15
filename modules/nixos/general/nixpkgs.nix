@@ -9,6 +9,7 @@
     systemPackages = with pkgs; [
       git
       vim
+      cloud-utils
       nixpkgs-unstable.nh
       nixpkgs-unstable.attic-client
       openssh

@@ -35,7 +35,7 @@ rec {
           modules =
             let
               defaults = { pkgs, ... }: {
-                _module.args.nixpkgs-unstable = import inputs.nixpkgs-unstable { inherit (pkgs.stdenv.targetPlatform) system; };
+                _module.args.nixpkgs-unstable = import inputs.nixpkgs-unstable { inherit (pkgs.stdenv.targetPlatform) system; config.allowUnfree = true; };
               };
             in
             lib.flatten [
