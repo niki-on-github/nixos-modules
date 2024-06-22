@@ -1,0 +1,3 @@
+[submodule "secrets/pki"]
+	path = secrets/pki
+	url = https://git.k8s.lan/r/pki.git

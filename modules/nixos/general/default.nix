@@ -9,5 +9,6 @@
     ./system.nix
     ./systemd.nix
     ./xdg.nix
+    ./pki.nix
   ];
 }
