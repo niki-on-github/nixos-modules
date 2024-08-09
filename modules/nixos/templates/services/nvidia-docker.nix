@@ -12,13 +12,13 @@ in
     };
   };
   config = lib.mkIf cfg.enable {
+    templates.hardware.nvidia.enable = true;
+
     environment.systemPackages = with pkgs; [
       docker
       nvidia-docker
       replicate-cog
     ];
-
-    hardware.opengl.driSupport32Bit = true;
 
     virtualisation = {
       docker = {

@@ -98,7 +98,7 @@ in
         libosinfo
         osinfo-db
         libxslt
-        (quickemu.override { qemu = qemu_full; })
+        quickemu
         nixos-generators
         virtnbdbackup
       ]

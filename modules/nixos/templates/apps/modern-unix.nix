@@ -68,6 +68,7 @@ in
         zellij
         zoxide
         vault-medusa
+        zip
       ];
     };
   };

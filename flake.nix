@@ -74,6 +74,7 @@
           git
           jq
           tree
+          nixos-anywhere
         ];
         text = builtins.readFile ./utils/remote-install.sh;
       };
@@ -119,6 +120,9 @@
 
       packages.x86_64-linux.update-system = pkgs.writeShellApplication {
         name = "update-system";
+        runtimeInputs = with pkgs; [
+          deploy-rs
+        ];
         text = builtins.readFile ./utils/update.sh;
       };
 

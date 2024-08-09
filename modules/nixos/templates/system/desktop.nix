@@ -149,10 +149,16 @@ in
           libsForQt5.breeze-qt5
           libsForQt5.qt5ct
           flatpak-builder
+          gnome.adwaita-icon-theme
+          shared-mime-info
         ]
         (lib.mkIf cfg.sddm.enable [
           simple-login-sddm-theme
         ])
+      ];
+      pathsToLink = [
+        "/share/icons"
+        "/share/mime"
       ];
     };
   };

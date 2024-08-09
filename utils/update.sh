@@ -13,8 +13,8 @@ TARGET="$1"; shift
 function local_system_update() {
     read -r -p 'switch directly to the new system (y/N): ' choice
     case "$choice" in
-        y|Y|yes|Yes) exec sudo nixos-rebuild switch --flake ".#$TARGET" --upgrade;;
-        *) exec sudo nixos-rebuild boot --flake ".#$TARGET" --upgrade;;
+        y|Y|yes|Yes) exec sudo nixos-rebuild switch --flake ".#$TARGET" --upgrade --fallback;;
+        *) exec sudo nixos-rebuild boot --flake ".#$TARGET" --upgrade --fallback;;
     esac
 }
 

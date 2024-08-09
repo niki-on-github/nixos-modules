@@ -140,6 +140,9 @@ in
       zathura
       filezilla
       restic-browser
+      xournalpp
+      localsend
+      zip
     ];
   }   
   // import (./desktop-programs.nix) { inherit config lib pkgs; });

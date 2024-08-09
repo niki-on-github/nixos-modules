@@ -11,12 +11,30 @@ in
       description = "Enable nvida drivers.";
     };
   };
+
   config = lib.mkIf cfg.enable {
-    hardware.opengl = {
-      enable = true;
-      driSupport = true;
-      driSupport32Bit = true;
-    };
+    hardware = lib.mkMerge [
+      #(lib.mkIf (lib.versionAtLeast config.system.stateVersion "24.11") {
+      #  graphics = {
+      #    enable = true;
+      #    enable32Bit = true;
+      #  };
+      #})
+      (lib.mkIf (!lib.versionAtLeast config.system.stateVersion "24.11") {
+        opengl = {
+          enable = true;
+          driSupport32Bit = true;
+        };
+      })
+      {
+        nvidia = {
+          modesetting.enable = true;
+          nvidiaSettings = true;
+          open = false;
+          package = config.boot.kernelPackages.nvidiaPackages.stable;
+        };
+      }
+    ];
 
     nixpkgs.config.allowUnfreePredicate = pkg:
       builtins.elem (lib.getName pkg) [
@@ -27,13 +45,6 @@ in
     services.xserver.videoDrivers = ["nvidia"];
     boot.initrd.kernelModules = [ "nvidia" ];
     boot.extraModulePackages = [ config.boot.kernelPackages.nvidia_x11 ];
-
-    hardware.nvidia = {
-      modesetting.enable = true;
-      nvidiaSettings = true;
-      open = false;
-      package = config.boot.kernelPackages.nvidiaPackages.stable;
-    };
 
     nixpkgs.config.cudaSupport = true;
 
