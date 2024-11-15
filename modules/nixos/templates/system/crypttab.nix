@@ -7,7 +7,7 @@ in
   options.templates.system.crypttab = {
     keyfile = lib.mkOption {
       type = lib.types.str;
-      default = "/boot/keys/disk.key";
+      default = "/etc/secrets/disk.key";
       description = "Path to keyfile";
     };
     devices = lib.mkOption {

@@ -15,8 +15,9 @@
     ./services/docker.nix
     ./services/tailscale.nix
     ./system/setup.nix
+    ./system/unlock.nix
     ./system/crypttab.nix
     ./system/desktop.nix
-    ./system/storage-pools
+    ./system/storage-pools.nix
   ];
 }

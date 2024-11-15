@@ -10,6 +10,12 @@ in
       description = "Enable Single Node K3S Cluster.";
     };
 
+    delay = lib.mkOption {
+      type = lib.types.int;
+      default = 60;
+      description = "K3S Service Start Delay";
+    };
+
     bootstrap = {
       helm = {
         enable = lib.mkOption {
@@ -367,7 +373,13 @@ in
 
     systemd = {
       services = {
-        k3s.after = lib.mkIf cfg.addons.nfs.enable [ "nfs-server.service" ];
+        k3s = {
+          after = lib.mkIf cfg.addons.nfs.enable [ "nfs-server.service" ];
+          serviceConfig = {
+            ExecStartPre = "${pkgs.coreutils}/bin/sleep ${toString cfg.delay}";
+            TimeoutStartSec = (120 + cfg.delay);
+          };
+        };
         minio-init = lib.mkIf cfg.addons.minio.enable {
           enable = true;
           path = [ pkgs.minio pkgs.minio-client];

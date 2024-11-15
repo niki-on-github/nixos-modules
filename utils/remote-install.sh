@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-NIXOS_ANYWERE_COMMIT="3a87ed3cb058567cff3afe42f84483926d9d05a1"
-
 if [ "$#" -lt 2 ]; then
     echo "ERROR: Illegal number of parameters $# ($*)"
     echo "Usage: nix run '.#install-system' -- \$TARGET \$SSH_USER@\$IP [\$DIR_WITH_SSH_KEYS]"
@@ -22,9 +20,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
-install -d -m755 "$temp/boot"
-install -d -m755 "$temp/boot/keys"
 install -d -m755 "$temp/etc"
+install -d -m755 "$temp/etc/secrets"
 install -d -m755 "$temp/etc/ssh"
 
 if [ "$#" -lt 1 ]; then
@@ -67,9 +64,9 @@ if [ ! -f "$temp/etc/ssh/ssh_host_ed25519_key" ]; then
     exit 1
 fi
 
-cp -fv "$temp/etc/ssh/ssh_host_ed25519_key" "$temp/boot/keys/disk.key"
+cp -fv "$temp/etc/ssh/ssh_host_ed25519_key" "$temp/etc/secrets/disk.key"
 
 echo "extra files:"
 tree -p -a "$temp"
 
-eval "nix --extra-experimental-features nix-command --extra-experimental-features flakes run "github:nix-community/nixos-anywhere/$NIXOS_ANYWERE_COMMIT" -- --extra-files \"$temp\" --disk-encryption-keys /tmp/disk.key \"$temp/boot/keys/disk.key\" --flake \".#$TARGET\" -t $HOST"
+eval "nixos-anywhere --extra-files \"$temp\" --disk-encryption-keys /tmp/disk.key \"$temp/etc/secrets/disk.key\" --flake \".#$TARGET\" -t $HOST"

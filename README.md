@@ -17,3 +17,10 @@ This repository provides my personal templates for `NixOS` and `home-manager` as
 ## TODO
 
 - [goldwarden](https://github.com/NixOS/nixpkgs/pull/278362)
+
+
+## Troubleshoot
+
+*bash: line 1: rsync: command not found*
+
+`nix-env -iA nixos.rsync`

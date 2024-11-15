@@ -166,8 +166,11 @@ in
     vscode = {
       enable = true;
       extensions = with pkgs.vscode-extensions; [
-        vscodevim.vim
         yzhang.markdown-all-in-one
+        waderyan.gitblame
+        asciidoctor.asciidoctor-vscode
+        ms-python.python
+        rust-lang.rust-analyzer
       ];
     };
     git = {

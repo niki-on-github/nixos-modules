@@ -51,9 +51,10 @@ rec {
       buildDeployment = { host, ... }:
         lib.nameValuePair host {
           hostname = host;
-          magicRollback = false; # enable this breaks sudo password see https://github.com/serokell/deploy-rs/issues/78
+          interactiveSudo = true;
+          magicRollback = true;
           sshUser = "${ssh-user}";
-          sshOpts = [ "-o UserKnownHostsFile=/dev/null" "-o StrictHostKeyChecking=no" "-t" ];
+          sshOpts = [ "-o UserKnownHostsFile=/dev/null" "-o StrictHostKeyChecking=no" ];
           profiles.system = {
             user = "root";
             path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos

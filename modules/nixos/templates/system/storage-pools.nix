@@ -3,14 +3,20 @@
 let
   cfg = config.templates.system.storagePools;
 
-  disk-formater = ''
+  disk-formater = keyfile: ''
+    if [ "$EUID" -ne 0 ] ; then
+      echo "Please run as root"
+      exit 1
+    fi
+    if [ ! -e ${keyfile} ]; then
+      echo "keyfile ${keyfile} not found"
+      exit 1
+    fi
     disk=$(ls /dev/disk/by-id | grep -E "(^ata-)" | grep -Ev "(-part[1-9])" | ${pkgs.fzf}/bin/fzf --prompt "Disk: ")
     [ -n "$disk" ] || exit 0
     disk_dev=$(readlink -f "/dev/disk/by-id/$disk")
     type=$(echo -e "data\nparity" | ${pkgs.fzf}/bin/fzf --prompt "Type: ")
     [ -n "$type" ] || exit 1
-    config="/etc/disk-formater/''${type}-disk.nix"
-    [ -f $config ] || exit 1
     echo "current partition layout:"
     lsblk -P -p -o "name,label,partlabel,mountpoint,size" | grep "$disk_dev" | xargs -I {} echo " - {}"
     echo "disk: $disk_dev"
@@ -18,15 +24,27 @@ let
     echo "create $type partition layout on $disk ($disk_dev) with label $label"
     read -p "Continue execution with capital 'YES': " confirm
     [ "$confirm" = "YES" ] || exit 1
-    sudo nix \
-      --extra-experimental-features nix-command \
-      --extra-experimental-features flakes \
-      run github:nix-community/disko/7b186e0f812a7c54a1fa86b8f7c0f01afecc69c2 -- \
-        $config \
-        --mode format \
-        --root-mountpoint / \
-        --arg device "/dev/disk/by-id/$disk" \
-        --argstr label $label
+    ${pkgs.util-linux}/bin/wipefs --force --quiet --all /dev/disk/by-id/$disk
+    ${pkgs.parted}/bin/parted --script /dev/disk/by-id/$disk mklabel gpt
+    ${pkgs.parted}/bin/parted --script /dev/disk/by-id/$disk mkpart primary 1MiB 100% name 1 luks_$label
+    ${pkgs.cryptsetup}/bin/cryptsetup luksFormat --batch-mode /dev/disk/by-id/$disk-part1 ${keyfile}
+    echo "Add Passphrase to luks volume:"
+    ${pkgs.cryptsetup}/bin/cryptsetup luksAddKey /dev/disk/by-id/$disk-part1 -d ${keyfile}
+    ${pkgs.cryptsetup}/bin/cryptsetup open /dev/disk/by-id/$disk-part1 $label --key-file ${keyfile}
+    ${pkgs.btrfs-progs}/bin/mkfs.btrfs -f -L $label /dev/mapper/$label
+    tmp_path=/tmp/btrfs-root-disk-formater
+    mkdir -p $tmp_path
+    mount -t btrfs -o defaults,noatime,compress=zstd /dev/mapper/$label $tmp_path
+    ${pkgs.btrfs-progs}/bin/btrfs subvolume create "$tmp_path/@content"
+    ${pkgs.btrfs-progs}/bin/btrfs subvolume create "$tmp_path/@$type"
+    ${pkgs.btrfs-progs}/bin/btrfs subvolume create "$tmp_path/@snapshots"
+    sync
+    sleep 1
+    umount -A -v -f /dev/mapper/$label
+    sleep 1
+    ${pkgs.cryptsetup}/bin/cryptsetup luksClose $label
+    rm -d $tmp_path
+    echo "/dev/disk/by-id/$disk is now provisioned"
   '';
 
   getDir = dir: lib.mapAttrs
@@ -190,7 +208,7 @@ in
     };
     keyFile = lib.mkOption {
       type = lib.types.str;
-      default = "/boot/keys/disk.key";
+      default = "/etc/secrets/disk.key";
       description = "crypttab keyfile";
     };
     pools = lib.mkOption {
@@ -277,6 +295,18 @@ in
       tmpfiles = {
         rules = myPoolVolumePaths ++ myPoolContentPermissions ++ myPoolParityPermissions ++ myPoolSnapshotPermissions;
       };
+
+      services.storage-pools-setup = {
+        description = "Ensure directories exist after mounts";
+        wantedBy = [ "multi-user.target" ];
+        after = [ "local-fs.target" ];
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+          ExecStartPre = "${pkgs.coreutils}/bin/sleep 15";
+          ExecStart = "${pkgs.systemd}/bin/systemd-tmpfiles --create";
+        };
+      };
     };
 
     fileSystems = builtins.listToAttrs (myDataDisks ++ myDataSnapshotDisks ++ myParityDisks ++ myContentDisks ++ myVolumes);
@@ -288,15 +318,16 @@ in
     };
 
     environment = {
-      etc = builtins.listToAttrs (mySnapraidConfigs ++ (generate-configs ./storage-configs "disk-formater"));
+      etc = builtins.listToAttrs mySnapraidConfigs;
       systemPackages = with pkgs; [
         btrfs-progs
+        disko
         mergerfs
         smartmontools
         snapper
         snapraid
         snapraid-btrfs
-       (writeShellScriptBin "disk-formater" "${disk-formater}")
+       (writeShellScriptBin "disk-formater" "${disk-formater cfg.keyFile}")
       ] ++ mySnapraidAliases;
     };
   };
