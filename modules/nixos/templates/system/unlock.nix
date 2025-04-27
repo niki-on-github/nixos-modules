@@ -36,16 +36,19 @@ in
     ];
     boot.initrd = {
       kernelModules = [ "af_packet" ];
-      # use `lspci -v | grep -i ethernet -A 10` to get the reuired kernelModules
-      availableKernelModules = [ "e1000e" "r8169" "ixgbe" "igb" ];
+      # use `lspci -v | grep -i ethernet -A 20` to get the reuired kernelModules
+      availableKernelModules = [ "e1000e" "r8169" "ixgbe" "igb" "virtio_pci" ];
       network = {
         enable = true;
-        udhcpc.enable = true;
+        udhcpc = {
+          enable = true;
+          extraArgs = ["-t" "12"]; # Send up to 12 discover packets
+        };
         flushBeforeStage2 = true;
       };
       extraUtilsCommands = ''
         copy_bin_and_libs ${pkgs.curl}/bin/curl
-        copy_bin_and_libs ${pkgs.iproute}/bin/ip
+        copy_bin_and_libs ${pkgs.iproute2}/bin/ip
         copy_bin_and_libs ${pkgs.jq}/bin/jq
         copy_bin_and_libs ${pkgs.gnused}/bin/sed
       '';

@@ -112,6 +112,14 @@ in
           If enabled metrics-server will be enabled on k3s cluster
         '';
       };
+
+       nvidia = lib.mkOption {  
+        type = lib.types.bool;
+        default = true;
+        description = ''
+          If enabled setup nvidia containerd runtime on k3s cluster
+        '';
+      };
     };
     
     addons = {
@@ -219,59 +227,76 @@ in
   in
     lib.mkIf cfg.enable {
 
-    environment = {
-      systemPackages = with pkgs; [
-        age
-        cilium-cli
-        fluxcd
-        kubernetes-helm
-        helmfile
-        git
-        go-task
-        minio-client        
-        jq
-        k9s
-        krelay
-        kubectl
-        nfs-utils
-        openiscsi
-        openssl_3
-        sops
+    templates = lib.mkIf cfg.services.nvidia {
+      hardware = {
+        nvidia.enable = true;
+      };
+    };
 
-        (writeShellScriptBin "nuke-k3s" ''
-          if [ "$EUID" -ne 0 ] ; then
-            echo "Please run as root"
-            exit 1
-          fi
-          read -r -p 'Nuke k3s?, confirm with yes (y/N): ' choice
-          case "$choice" in
-            y|Y|yes|Yes) echo "nuke k3s...";;
-            *) exit 0;;
-          esac
-          systemctl stop k3s-helm-bootstrap.timer || true
-          systemctl stop k3s-helm-bootstrap.service || true
-          systemctl stop k3s-flux2-bootstrap.timer || true
-          systemctl stop k3s-flux2-bootstrap.service || true
-          flux uninstall -s || true
-          kubectl delete deployments --all=true -A
-          kubectl delete statefulsets --all=true -A  
-          kubectl delete ns --all=true -A    
-          kubectl get ns | tail -n +2 | cut -d ' ' -f 1 | xargs -I{} kubectl delete pods --all=true --force=true -n {}
-          cilium uninstall || true
-          echo "wait until objects are deleted..."
-          sleep 28
-          systemctl stop k3s
-          sleep 2
-          rm -rf /var/lib/rancher/k3s/
-          rm -rf /var/lib/cni/networks/cbr0/
-          if [ -d /opt/k3s/data/temp ]; then
-            rm -rf /opt/k3s/data/temp/*
-          fi
-          sync
-          echo -e "\n => reboot now to complete k3s cleanup!"
-          sleep 3
-          reboot
-        '')
+    hardware.nvidia-container-toolkit = lib.mkIf cfg.services.nvidia {
+      enable = true;
+    };
+
+    environment = {
+      systemPackages = lib.mkMerge [
+        [
+          pkgs.runc
+          pkgs.age
+          pkgs.cilium-cli
+          pkgs.fluxcd
+          pkgs.kubernetes-helm
+          pkgs.helmfile
+          pkgs.git
+          pkgs.go-task
+          pkgs.minio-client
+          pkgs.jq
+          pkgs.k9s
+          pkgs.krelay
+          pkgs.kubectl
+          pkgs.nfs-utils
+          pkgs.openiscsi
+          pkgs.openssl_3
+          pkgs.sops
+
+          (pkgs.writeShellScriptBin "nuke-k3s" ''
+            if [ "$EUID" -ne 0 ] ; then
+              echo "Please run as root"
+              exit 1
+            fi
+            read -r -p 'Nuke k3s?, confirm with yes (y/N): ' choice
+            case "$choice" in
+              y|Y|yes|Yes) echo "nuke k3s...";;
+              *) exit 0;;
+            esac
+            systemctl stop k3s-helm-bootstrap.timer || true
+            systemctl stop k3s-helm-bootstrap.service || true
+            systemctl stop k3s-flux2-bootstrap.timer || true
+            systemctl stop k3s-flux2-bootstrap.service || true
+            flux uninstall -s || true
+            kubectl delete deployments --all=true -A
+            kubectl delete statefulsets --all=true -A  
+            kubectl delete ns --all=true -A    
+            kubectl get ns | tail -n +2 | cut -d ' ' -f 1 | xargs -I{} kubectl delete pods --all=true --force=true -n {}
+            cilium uninstall || true
+            echo "wait until objects are deleted..."
+            sleep 28
+            systemctl stop k3s
+            sleep 2
+            rm -rf /var/lib/rancher/k3s/
+            rm -rf /var/lib/cni/networks/cbr0/
+            if [ -d /opt/k3s/data/temp ]; then
+              rm -rf /opt/k3s/data/temp/*
+            fi
+            sync
+            echo -e "\n => reboot now to complete k3s cleanup!"
+            sleep 3
+            reboot
+          '')
+        ]
+        (lib.mkIf cfg.services.nvidia [
+          pkgs.nvtopPackages.nvidia
+          pkgs.nvidia-docker # Note, using docker here is a workaround, it will install nvidia-container-runtime and that will cause it to be accessible via /run/current-system/sw/bin/nvidia-container-runtime, currently its not directly accessible in nixpkgs.
+        ])
       ];
 
       etc = {
@@ -289,6 +314,30 @@ in
             K3S_KUBECONFIG_MODE="644"
           '';
         };
+        "rancher/k3s/nvidia/config.toml.tmpl" = lib.mkIf cfg.services.nvidia {
+          mode = "0750";
+          text = ''
+            {{ template "base" . }}
+
+            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia]
+              runtime_type = "io.containerd.runc.v2"
+
+            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia.options]
+              BinaryName = "/run/current-system/sw/bin/nvidia-container-runtime.cdi"
+          '';
+        };
+        "rancher/k3s/nvidia/nvidia-runtime.yaml" = lib.mkIf cfg.services.nvidia {
+          mode = "0750";
+          text = ''
+            apiVersion: node.k8s.io/v1
+            handler: nvidia
+            kind: RuntimeClass
+            metadata:
+              labels:
+                app.kubernetes.io/component: gpu-operator
+              name: nvidia
+          '';
+        };
       };
     };
 
@@ -300,6 +349,10 @@ in
       (lib.mkIf cfg.addons.nfs.enable [
         "d ${cfg.addons.nfs.path} 0775 root root -"
         "d ${cfg.addons.nfs.path}/pv 0775 root root -"
+      ])
+      (lib.mkIf cfg.services.nvidia [
+        "L /var/lib/rancher/k3s/server/manifests/nvidia-runtime.yaml - - - - /etc/rancher/k3s/nvidia/nvidia-runtime.yaml"
+        "L /var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl - - - - /etc/rancher/k3s/nvidia/config.toml.tmpl"
       ])
     ];
 
@@ -354,7 +407,7 @@ in
       nfs.server = lib.mkIf cfg.addons.nfs.enable {
         enable = true;
         exports = ''
-          ${cfg.addons.nfs.path} ${config.networking.hostName}(rw,fsid=0,async,no_subtree_check,no_auth_nlm,insecure,no_root_squash)        
+          ${cfg.addons.nfs.path} ${config.networking.hostName}(rw,fsid=0,async,no_subtree_check,no_auth_nlm,insecure,no_root_squash)
         '';
       };
       minio = lib.mkIf cfg.addons.minio.enable {
@@ -373,10 +426,22 @@ in
 
     systemd = {
       services = {
-        k3s = {
-          after = lib.mkIf cfg.addons.nfs.enable [ "nfs-server.service" ];
+        k3s-delay = {
+          description = "Delay start of k3s";
+          wantedBy = [ "multi-user.target" ];
           serviceConfig = {
-            ExecStartPre = "${pkgs.coreutils}/bin/sleep ${toString cfg.delay}";
+            Type = "oneshot";
+            RemainAfterExit = true;
+            ExecStart = "${pkgs.coreutils}/bin/true";
+          };
+        };
+        k3s = {
+          after = lib.mkMerge [
+           ["k3s.delay.service"]
+           (lib.mkIf cfg.addons.minio.enable [ "minio.service" ])
+           (lib.mkIf cfg.addons.nfs.enable [ "nfs-server.service" ])
+          ];
+          serviceConfig = {
             TimeoutStartSec = (120 + cfg.delay);
           };
         };
@@ -394,10 +459,17 @@ in
           script = ''
             set -e
             sleep 5
-            source ${cfg.addons.minio.credentialsFile}     
+            source ${cfg.addons.minio.credentialsFile}
             mc --config-dir "$RUNTIME_DIRECTORY" alias set minio http://localhost:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
             ${toString (lib.lists.forEach cfg.addons.minio.buckets (bucket: "mc --config-dir $RUNTIME_DIRECTORY mb --ignore-existing minio/${bucket};"))}
           '';
+        };
+      };
+      timers.k3s-delay = {
+        wantedBy = ["timers.target"];
+        timerConfig = {
+          OnBootSec = "${toString cfg.delay}s";
+          Unit = "k3s-delay.service";
         };
       };
       timers."k3s-helm-bootstrap" = lib.mkIf cfg.bootstrap.helm.enable {
@@ -430,6 +502,7 @@ in
         fi
         ${pkgs.helmfile}/bin/helmfile --quiet --file ${cfg.bootstrap.helm.helmfile} apply --skip-diff-on-install --suppress-diff
       '';
+      after = [ "k3s.service" ];
       serviceConfig = {
         Type = "oneshot";
         User = "root";
@@ -467,6 +540,7 @@ in
         EOL
         ${pkgs.kubectl}/bin/kubectl apply --kustomize /tmp/k3s-flux2-bootstrap
       '';
+      after = [ "k3s.service" ];
       serviceConfig = {
         Type = "oneshot";
         User = "root";

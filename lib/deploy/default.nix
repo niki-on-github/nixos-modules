@@ -15,7 +15,7 @@ rec {
 
   readVisibleDirectories = path: filterDirectories (readVisible path);
 
-  generateNixosDeployments = { inputs, path, ssh-user, sharedModules ? [ ], deployOptions ? { } }:
+  generateNixosDeployments = { inputs, path, ssh-user ? "nix", sharedModules ? [ ], deployOptions ? { } }:
     let
       systems = readVisibleDirectories path;
       hosts = lib.concatMap

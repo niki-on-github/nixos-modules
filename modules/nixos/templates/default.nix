@@ -5,7 +5,6 @@
     ./hardware/nvidia.nix
     ./services/k3s.nix
     ./services/kvm.nix
-    ./services/nvidia-docker.nix
     ./services/printer.nix
     ./services/samba.nix
     ./services/smartd-webui.nix
@@ -18,6 +17,7 @@
     ./system/unlock.nix
     ./system/crypttab.nix
     ./system/desktop.nix
+    ./system/storage.nix
     ./system/storage-pools.nix
   ];
 }

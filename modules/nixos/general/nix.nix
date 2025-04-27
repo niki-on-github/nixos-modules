@@ -1,18 +1,18 @@
 { pkgs, ... }:
 {
   nix = {
-    # TODO enable this when all machines are updated 
-    # package = pkgs.nixVersions.latest;
+    package = pkgs.nixVersions.latest;
     extraOptions = ''
       experimental-features = nix-command flakes
       keep-outputs = true
       keep-derivations = true
     '';
+    settings.download-buffer-size = 524288000;
 
     gc = {
       automatic = true;
       dates = "weekly";
-      options = "--delete-older-than 60d";
+      options = "--delete-older-than 120d";
     };
 
     optimise = {

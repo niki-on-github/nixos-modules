@@ -86,7 +86,7 @@ in
 
     networking.networkmanager.enable = true;
 
-    hardware.opengl.enable = true;
+    hardware.graphics.enable = true;
     services = {
       dbus.enable = true;
       udisks2.enable = true;
@@ -149,7 +149,7 @@ in
           libsForQt5.breeze-qt5
           libsForQt5.qt5ct
           flatpak-builder
-          gnome.adwaita-icon-theme
+          adwaita-icon-theme
           shared-mime-info
         ]
         (lib.mkIf cfg.sddm.enable [

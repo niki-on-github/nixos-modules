@@ -14,7 +14,9 @@ in
       type = lib.types.bool;
       default = false;
       description = "Enable GUI.";
-    };  
+    };
+    # e.g. use command `sudo lspci -nn | grep VGA`
+    # the hw id is inside the square brackets e.g. [1002:7340]
     vfioIds = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [ ];

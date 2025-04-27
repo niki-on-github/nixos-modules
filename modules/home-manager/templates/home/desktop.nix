@@ -85,10 +85,6 @@ in
       "f ${config.home.homeDirectory}/.cache/mpd/database 0755 ${config.home.username} users -"
     ];
 
-    nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [
-      "spotify"
-    ];
-
     home.packages = with pkgs; [
       clipman
       grim
@@ -109,7 +105,6 @@ in
       pulsemixer
       easyeffects
       mp3splt
-      mp3info
       playerctl
       lame
     ] ++ [
@@ -122,7 +117,6 @@ in
       tk
       meld
       mpc-cli
-      mpv
       ffmpeg_6-full
       ncmpcpp
       imv
@@ -130,6 +124,7 @@ in
       android-file-transfer
       newsboat
       obs-studio
+      freefilesync
       nixpkgs-unstable.freerdp3
       nur.repos.nltch.spotify-adblock
       thunderbird
@@ -139,7 +134,7 @@ in
       gparted
       zathura
       filezilla
-      restic-browser
+      # restic-browser # TODO broken
       xournalpp
       localsend
       zip

@@ -10,11 +10,10 @@
       git
       vim
       cloud-utils
-      nixpkgs-unstable.nh
-      nixpkgs-unstable.attic-client
       openssh
       nvme-cli
       parted
+      dmidecode
     ];
   };
 

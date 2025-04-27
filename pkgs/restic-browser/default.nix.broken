@@ -3,7 +3,7 @@
 }:
 
 let
-  version = "v0.3.0";
+  version = "v0.3.2";
   dependencies = with pkgs; [
     dbus
     gtk3
@@ -59,8 +59,9 @@ pkgs.rustPlatform.buildRustPackage {
     cargo-tauri
   ];
   postPatch = ''
-    substituteInPlace tauri.conf.json --replace '"beforeBuildCommand": "npm run build",' '"beforeBuildCommand": "",'
-    substituteInPlace tauri.conf.json --replace '"distDir": "../dist"' '"distDir": "${restic-browser_frontend}/dist"'
+    # --replace-warn: warn if substitution does not occure
+    substituteInPlace tauri.conf.json --replace-warn '"beforeBuildCommand": "npm run build",' '"beforeBuildCommand": "",'
+    substituteInPlace tauri.conf.json --replace-warn '"distDir": "../dist"' '"distDir": "${restic-browser_frontend}/dist"'
   '';
   buildPhase = ''
     cargo tauri build

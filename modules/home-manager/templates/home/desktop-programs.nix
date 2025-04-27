@@ -1,4 +1,4 @@
-{ config, pkgs, lib, ... }:
+{ pkgs, ... }:
 let
   firefoxSearchConfig = {
     force = true;
@@ -110,6 +110,7 @@ let
     "browser.urlbar.suggest.history" = false;
     "browser.urlbar.suggest.openpage" = false;
     "browser.urlbar.suggest.topsites" = false;
+    "browser.urlbar.suggest.searches" = false;
     "datareporting.healthreport.uploadEnabled" = false;
     "experiments.activeExperiment" = false;
     "experiments.enabled" = false;
@@ -150,10 +151,11 @@ let
     floccus
     ublock-origin
     i-dont-care-about-cookies
+    sponsorblock
+    darkreader
   ];
 
   firefoxHardenedExtensions = with pkgs.nur.repos.rycee.firefox-addons; [
-    darkreader
     canvasblocker
     clearurls
     multi-account-containers
@@ -173,6 +175,24 @@ in
         rust-lang.rust-analyzer
       ];
     };
+    mpv = {
+      enable = true;
+      config = {
+        ontop = true;
+        force-window = true;
+        autofit = "1200x600";
+        geometry = "-5-5";
+        vo = "gpu-next";
+        profile = "gpu-hq";
+      };
+      profiles = {
+        "youtube" = {
+          speed = 1.8;
+          script-opts-append = "ytdl_hook-ytdl_path=yt-dlp";
+        };
+      };
+      scripts = with pkgs.mpvScripts; [ sponsorblock-minimal ];
+    };
     git = {
       enable = true;
       lfs.enable = true;
@@ -186,7 +206,7 @@ in
       };
       extraConfig = {
         init = {
-          defaultBranch = "main";        
+          defaultBranch = "main";
         };
         credential = {
           helper = "cache --timeout=3600";
