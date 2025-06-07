@@ -42,6 +42,7 @@ in
           enable = true;
           device = "nodev";
           efiSupport = true;
+          configurationLimit = 10;
         };
       };
 
@@ -62,7 +63,7 @@ in
         partitions = {
           ESP = {
             label = "boot";
-            size = "512M";
+            size = "256M";
             type = "EF00";
             content = {
               type = "filesystem";
@@ -127,6 +128,7 @@ in
           device = "nodev";
           efiSupport = true;
           enableCryptodisk = true;
+          configurationLimit = 10;
           extraPrepareConfig = ''
             if [ -t 0 ] ; then
               ${pkgs.cryptsetup}/bin/cryptsetup luksOpen --test-passphrase /dev/disk/by-partlabel/luks_system --key-file /etc/secrets/disk.key || ${pkgs.cryptsetup}/bin/cryptsetup luksAddKey /dev/disk/by-partlabel/luks_system /etc/secrets/disk.key
@@ -163,7 +165,7 @@ in
         partitions = {
           ESP = {
             label = "boot";
-            size = "512M";
+            size = if (cfg.encryption == "full") then "256M" else "4096M";
             type = "EF00";
             content = {
               type = "filesystem";

@@ -20,6 +20,8 @@ in
         enable = true;
         settings = {
           PermitRootLogin = "no";
+          ClientAliveInterval = 100;
+          ClientAliveCountMax = 3;
         };
       };
     };

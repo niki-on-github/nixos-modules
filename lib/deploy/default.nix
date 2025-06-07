@@ -54,6 +54,9 @@ rec {
           interactiveSudo = true;
           magicRollback = true;
           sshUser = "${ssh-user}";
+          fastConnection = true;
+          remoteBuild = false;
+          confirmTimeout = 60;
           sshOpts = [ "-o UserKnownHostsFile=/dev/null" "-o StrictHostKeyChecking=no" ];
           profiles.system = {
             user = "root";

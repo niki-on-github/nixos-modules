@@ -14,6 +14,7 @@
       nvme-cli
       parted
       dmidecode
+      ethtool
     ];
   };
 

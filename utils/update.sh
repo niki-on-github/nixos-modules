@@ -22,10 +22,17 @@ fi
 
 function local_system_update() {
     read -r -p 'switch directly to the new system (y/N): ' choice
-    case "$choice" in
-        y|Y|yes|Yes) exec sudo nixos-rebuild switch --flake ".#$TARGET" --upgrade --fallback;;
-        *) exec sudo nixos-rebuild boot --flake ".#$TARGET" --upgrade --fallback;;
-    esac
+    if [ "$(curl -o /dev/null -s -w '%{http_code}' "$CACHE_PROXY")" = "200" ]; then
+        case "$choice" in
+            y|Y|yes|Yes) exec sudo nixos-rebuild switch --flake ".#$TARGET" --upgrade --fallback --option extra-substituters "$CACHE_PROXY?priority=1&trusted=1";;
+            *) exec sudo nixos-rebuild boot --flake ".#$TARGET" --upgrade --fallback --option extra-substituters "$CACHE_PROXY?priority=1&trusted=1";;
+        esac
+    else
+        case "$choice" in
+            y|Y|yes|Yes) exec sudo nixos-rebuild switch --flake ".#$TARGET" --upgrade --fallback;;
+            *) exec sudo nixos-rebuild boot --flake ".#$TARGET" --upgrade --fallback;;
+        esac
+    fi
 }
 
 if [ "$#" -lt 1 ]; then
@@ -40,8 +47,15 @@ HOSTNAME="$1"; shift
 
 if [ -n "$HOSTNAME" ]; then
     read -r -p 'switch directly to the new system (y/N): ' choice
-    case "$choice" in
-        y|Y|yes|Yes) exec deploy --hostname "$HOSTNAME" -- ".#$TARGET";;
-        *) exec deploy --boot --hostname "$HOSTNAME" -- ".#$TARGET";;
-    esac
+    if [ "$(curl -o /dev/null -s -w '%{http_code}' "$CACHE_PROXY")" = "200" ]; then
+        case "$choice" in
+            y|Y|yes|Yes) exec deploy --hostname "$HOSTNAME" -- ".#$TARGET" --option extra-substituters "$CACHE_PROXY?priority=1&trusted=1";;
+            *) exec deploy --boot --hostname "$HOSTNAME" -- ".#$TARGET" --option extra-substituters "$CACHE_PROXY?priority=1&trusted=1";;
+        esac
+    else
+        case "$choice" in
+            y|Y|yes|Yes) exec deploy --hostname "$HOSTNAME" -- ".#$TARGET";;
+            *) exec deploy --boot --hostname "$HOSTNAME" -- ".#$TARGET";;
+        esac
+    fi
 fi

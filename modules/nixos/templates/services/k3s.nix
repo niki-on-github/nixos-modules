@@ -65,6 +65,14 @@ in
         '';
       };
 
+      builtin-containerd = lib.mkOption {  
+        type = lib.types.bool;
+        default = true;
+        description = ''
+          If enabled k3s use buildin containerd
+        '';
+      };
+
       flannel = lib.mkOption {  
         type = lib.types.bool;
         default = true;
@@ -72,14 +80,6 @@ in
           If enabled flannel will be enabled on k3s cluster
         '';
       };      
-      
-      flux = lib.mkOption {  
-        type = lib.types.bool;
-        default = true;
-        description = ''
-          If enabled flux will be installed to k3s cluster
-        '';
-      };
       
       servicelb = lib.mkOption {  
         type = lib.types.bool;
@@ -213,6 +213,8 @@ in
       "--secrets-encryption"
       "--write-kubeconfig-mode 0644"
       "--kube-apiserver-arg='enable-admission-plugins=${lib.concatStringsSep "," k3sAdmissionPlugins}'"
+    ] ++ lib.lists.optionals (cfg.services.builtin-containerd == false) [ 
+      "--container-runtime-endpoint unix:///run/containerd/containerd.sock"
     ] ++ lib.lists.optionals (cfg.services.flannel == false) [ 
       "--flannel-backend=none" 
       "--disable-network-policy"
@@ -233,8 +235,32 @@ in
       };
     };
 
+    # required for Rook/Ceph
+    boot.kernelModules = [ "rbd" ];
+    
     hardware.nvidia-container-toolkit = lib.mkIf cfg.services.nvidia {
       enable = true;
+    };
+
+
+    virtualisation.containerd = lib.mkIf (cfg.services.builtin-containerd == false) {
+      enable = true;
+      settings =
+        let
+          fullCNIPlugins = pkgs.buildEnv {
+            name = "full-cni";
+            paths = [
+              pkgs.cni-plugins
+            ] ++ lib.lists.optionals (cfg.services.flannel == true) [
+              pkgs.cni-plugin-flannel
+            ];
+          };
+        in {
+          plugins."io.containerd.grpc.v1.cri".cni = {
+            bin_dir = "${fullCNIPlugins}/bin";
+            conf_dir = "/var/lib/rancher/k3s/agent/etc/cni/net.d/";
+          };
+        };
     };
 
     environment = {
@@ -257,6 +283,7 @@ in
           pkgs.openiscsi
           pkgs.openssl_3
           pkgs.sops
+          pkgs.multus-cni
 
           (pkgs.writeShellScriptBin "nuke-k3s" ''
             if [ "$EUID" -ne 0 ] ; then
@@ -275,8 +302,9 @@ in
             flux uninstall -s || true
             kubectl delete deployments --all=true -A
             kubectl delete statefulsets --all=true -A  
-            kubectl delete ns --all=true -A    
+            kubectl delete ns --all=true -A
             kubectl get ns | tail -n +2 | cut -d ' ' -f 1 | xargs -I{} kubectl delete pods --all=true --force=true -n {}
+            timeout 10 kubectl delete crds --all || true
             cilium uninstall || true
             echo "wait until objects are deleted..."
             sleep 28
@@ -343,6 +371,7 @@ in
 
     systemd.tmpfiles.rules = lib.mkMerge [
       [
+        "L+ /usr/local/bin - - - - /run/current-system/sw/bin/"
         "d /root/.kube 0755 root root -"
         "L /root/.kube/config  - - - - /etc/rancher/k3s/k3s.yaml"
       ]
@@ -445,6 +474,10 @@ in
             TimeoutStartSec = (120 + cfg.delay);
           };
         };
+        minio = {
+          # ensure data mounts
+          serviceConfig.ExecStartPre = "${pkgs.coreutils}/bin/sleep 30";
+        };
         minio-init = lib.mkIf cfg.addons.minio.enable {
           enable = true;
           path = [ pkgs.minio pkgs.minio-client];
@@ -480,14 +513,6 @@ in
           Unit = "k3s-helm-bootstrap.service";
         };
       };
-      timers."k3s-flux2-bootstrap" = lib.mkIf cfg.services.flux {
-        wantedBy = [ "timers.target" ];
-        timerConfig = {
-          OnBootSec = "3m";
-          OnUnitActiveSec = "3m";
-          Unit = "k3s-flux2-bootstrap.service";
-        };
-      };
     };
 
     systemd.services."k3s-helm-bootstrap" = lib.mkIf cfg.bootstrap.helm.enable {
@@ -501,44 +526,6 @@ in
           exit 0
         fi
         ${pkgs.helmfile}/bin/helmfile --quiet --file ${cfg.bootstrap.helm.helmfile} apply --skip-diff-on-install --suppress-diff
-      '';
-      after = [ "k3s.service" ];
-      serviceConfig = {
-        Type = "oneshot";
-        User = "root";
-        RestartSec = "3m";
-      };
-    };
-
-    systemd.services."k3s-flux2-bootstrap" = lib.mkIf cfg.services.flux {
-      script = ''
-        export PATH="$PATH:${pkgs.git}/bin"
-        if ${pkgs.kubectl}/bin/kubectl get CustomResourceDefinition -A | grep -q "toolkit.fluxcd.io" ; then
-          exit 0
-        fi
-        sleep 30
-        if ${pkgs.kubectl}/bin/kubectl get CustomResourceDefinition -A | grep -q "toolkit.fluxcd.io" ; then
-          exit 0
-        fi
-        mkdir -p /tmp/k3s-flux2-bootstrap
-        cat > /tmp/k3s-flux2-bootstrap/kustomization.yaml << EOL
-        apiVersion: kustomize.config.k8s.io/v1beta1
-        kind: Kustomization
-        resources:
-          - github.com/fluxcd/flux2/manifests/install
-        patches:
-          # Remove the default network policies
-          - patch: |-
-              \$patch: delete
-              apiVersion: networking.k8s.io/v1
-              kind: NetworkPolicy
-              metadata:
-                name: not-used
-            target:
-              group: networking.k8s.io
-              kind: NetworkPolicy
-        EOL
-        ${pkgs.kubectl}/bin/kubectl apply --kustomize /tmp/k3s-flux2-bootstrap
       '';
       after = [ "k3s.service" ];
       serviceConfig = {
