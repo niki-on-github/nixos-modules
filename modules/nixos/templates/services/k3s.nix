@@ -226,6 +226,12 @@ in
     ];
     k3sDisableFlags = builtins.map (service: "--disable ${service}") k3sDisabledServices;
     k3sCombinedFlags = lib.concatLists [k3sDisableFlags k3sExtraFlags];
+    helm-with-plugins = (pkgs.wrapHelm pkgs.kubernetes-helm {
+      plugins = with pkgs.kubernetes-helmPlugins; [
+        helm-diff
+        helm-git
+      ];
+    });
   in
     lib.mkIf cfg.enable {
 
@@ -241,7 +247,6 @@ in
     hardware.nvidia-container-toolkit = lib.mkIf cfg.services.nvidia {
       enable = true;
     };
-
 
     virtualisation.containerd = lib.mkIf (cfg.services.builtin-containerd == false) {
       enable = true;
@@ -266,11 +271,11 @@ in
     environment = {
       systemPackages = lib.mkMerge [
         [
+          helm-with-plugins
           pkgs.runc
           pkgs.age
           pkgs.cilium-cli
           pkgs.fluxcd
-          pkgs.kubernetes-helm
           pkgs.helmfile
           pkgs.git
           pkgs.go-task
@@ -517,7 +522,7 @@ in
 
     systemd.services."k3s-helm-bootstrap" = lib.mkIf cfg.bootstrap.helm.enable {
       script = ''
-        export PATH="$PATH:${pkgs.git}/bin:${pkgs.kubernetes-helm}/bin"
+        export PATH="$PATH:${pkgs.git}/bin:${helm-with-plugins}/bin"
         if ${pkgs.kubectl}/bin/kubectl ${cfg.bootstrap.helm.completedIf} ; then
           exit 0
         fi

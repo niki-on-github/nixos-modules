@@ -1,10 +1,10 @@
 { lib, config, pkgs, nixpkgs-unstable, ... }:
 
 let
-  cfg = config.templates.apps.modernUnix;
+  cfg = config.templates.apps.modern-unix;
 in
 {
-  options.templates.apps.modernUnix = {
+  options.templates.apps.modern-unix = {
     enable = lib.mkOption {
       type = lib.types.bool;
       default = false;

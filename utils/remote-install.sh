@@ -14,6 +14,16 @@ VAULT_KEYNAME="$TARGET"
 RED='\033[0;31m'
 NC='\033[0m'
 
+if [ "$(curl -o /dev/null -s -w '%{http_code}' "$CACHE_PROXY")" = "200" ]; then
+    echo "use local cache server: $CACHE_PROXY"
+    if ! nixos-rebuild build --option extra-substituters "$CACHE_PROXY?priority=1&trusted=1" --flake ".#${TARGET}"; then
+        exit 1
+    fi
+    echo "upload build artifacts to local cache server..."
+    nix copy --to "$CACHE_PROXY/?parallel-compression=true" "$(readlink -f ./result)"
+    echo "upload completed"
+fi
+
 temp=$(mktemp -d)
 
 cleanup() {
@@ -70,14 +80,4 @@ cp -fv "$temp/etc/ssh/ssh_host_ed25519_key" "$temp/etc/secrets/disk.key"
 echo "extra files:"
 tree -p -a "$temp"
 
-if [ "$(curl -o /dev/null -s -w '%{http_code}' "$CACHE_PROXY")" = "200" ]; then
-    echo "use local cache server: $CACHE_PROXY"
-    if ! nixos-rebuild build --option extra-substituters "$CACHE_PROXY?priority=1&trusted=1" --flake ".#${TARGET}"; then
-        exit 1
-    fi
-    echo "upload build artifacts to local cache server..."
-    nix copy --to "$CACHE_PROXY/?parallel-compression=true" "$(readlink -f ./result)"
-    echo "upload completed"
-fi
-
-eval "nixos-anywhere --extra-files \"$temp\" --disk-encryption-keys /tmp/disk.key \"$temp/etc/secrets/disk.key\" --flake \".#$TARGET\" $HOST"
+eval "nixos-anywhere --extra-files \"$temp\" --disk-encryption-keys /tmp/disk.key \"$temp/etc/secrets/disk.key\" --no-substitute-on-destination --flake \".#$TARGET\" $HOST"

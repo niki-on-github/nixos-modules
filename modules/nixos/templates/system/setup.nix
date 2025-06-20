@@ -7,6 +7,15 @@ let
     (lib.mkIf (a && b) yes)
     (lib.mkIf (a && !b) no)
   ];
+
+  mkIfElse = a : yes: no: lib.mkMerge [
+    (lib.mkIf a yes)
+    (lib.mkIf (!a) no)
+  ];
+
+  zfsDatasets = [
+    { name = "root"; mountpoint = "/"; }
+  ] ++ cfg.zfs.datasets;
 in
 {
   options.templates.system.setup = {
@@ -15,6 +24,17 @@ in
       default = false;
       description = "Enable System Setup.";
     };
+
+    filesystem = lib.mkOption {
+      type = lib.types.enum [ "btrfs" "zfs" ];
+      default = "btrfs";
+      description = ''
+        Filesystem Types:
+        - btrfs: Use this if you dont need zfs speciffic features.
+        - zfs: when use with encryption = "system" we use luks because the zfs encryption does not support multiple keys
+      '';
+    };
+
     encryption = lib.mkOption {
       type = lib.types.enum [ "disabled" "system" "full" ];
       default = "disabled";
@@ -22,17 +42,39 @@ in
         Specifies the disk encryption strategy for the system:
         - "disabled": No encryption (default)
         - "system": Encrypt only the system partition
-        - "full": Full disk encryption (including boot partition)
+        - "full": Full disk encryption (including boot partition), does not work with zfs
       '';
     };
+
     disk = lib.mkOption {
       type = lib.types.str;
       description = "Disk e.g. /dev/disk/by-id/ata-ssd";
+    };
+
+    zfs = {
+      datasets = lib.mkOption {
+        type = lib.types.listOf (lib.types.submodule {
+          options = {
+            name = lib.mkOption {
+              type = lib.types.str;
+              description = "Dataset name";
+            };
+            mountpoint = lib.mkOption {
+              type = lib.types.nullOr lib.types.str;
+              default = null;
+              description = "Mountpoint";
+            };
+          };
+        });
+        default = [];
+        description = "List of additional ZFS datasets (root is always included)";
+      };
     };
   };
 
   config = mkEnableIfElse cfg.enable (cfg.encryption == "disabled") {
     boot = {
+      supportedFilesystems = lib.mkIf (cfg.filesystem == "zfs") [ "zfs" ];
       loader = {
         efi = {
           canTouchEfiVariables = true;
@@ -54,7 +96,28 @@ in
         availableKernelModules = [ "nvme" "ahci" "xhci_pci" "usbhid" "usb_storage" "virtio_pci" "sr_mod" "virtio_blk" "virtio-scsi" "sd_mod" "sdhci_pci" "aesni_intel" "cryptd" ];
       };
     };
-    
+
+    disko.devices.zpool = lib.mkIf (cfg.filesystem == "zfs") {
+      zroot = {
+        type = "zpool";
+        rootFsOptions = {
+          mountpoint = "none";
+          compression = "zstd";
+          dedup = "off";
+          acltype = "posixacl";
+          xattr = "sa";
+        };
+        options.ashift = "12";
+        datasets = {
+          "root" = {
+            type = "zfs_fs";
+            mountpoint = "/";
+
+          };
+        };
+      };
+    };
+
     disko.devices.disk = lib.genAttrs [ "${cfg.disk}" ] (dev: {
       device = dev;
       type = "disk";
@@ -75,8 +138,15 @@ in
               ];
             };
           };
-          system = {
+          system = mkIfElse (cfg.filesystem == "zfs") {
             label = "system";
+            size = "100%";
+            content = {
+              type = "zfs";
+              pool = "zroot";
+            };
+          } {
+           label = "system";
             size = "100%";
             content = {
               type = "btrfs";
@@ -109,12 +179,21 @@ in
       };
     }); 
   } {
+    
+    assertions = [
+      {
+        assertion = (cfg.filesystem != "zfs") || (cfg.encryption == "system");
+        message = "zfs does not support full encrypted system!";
+      }
+    ];
+
     # full/system encrypted configuration
     systemd.tmpfiles.rules = [
       "d /etc/secrets 0000 root root - -"
       "z /etc/secrets 0000 root root - -"
     ];
     boot = {
+      supportedFilesystems = lib.mkIf (cfg.filesystem == "zfs") [ "zfs" ];
       loader = {
         efi = {
           canTouchEfiVariables = true;
@@ -130,8 +209,8 @@ in
           enableCryptodisk = true;
           configurationLimit = 10;
           extraPrepareConfig = ''
-            if [ -t 0 ] ; then
-              ${pkgs.cryptsetup}/bin/cryptsetup luksOpen --test-passphrase /dev/disk/by-partlabel/luks_system --key-file /etc/secrets/disk.key || ${pkgs.cryptsetup}/bin/cryptsetup luksAddKey /dev/disk/by-partlabel/luks_system /etc/secrets/disk.key
+            if [ -t 0 ] && [ -e /dev/disk/by-partlabel/00_luks_system ]; then
+              ${pkgs.cryptsetup}/bin/cryptsetup luksOpen --test-passphrase /dev/disk/by-partlabel/00_luks_system --key-file /etc/secrets/disk.key || ${pkgs.cryptsetup}/bin/cryptsetup luksAddKey /dev/disk/by-partlabel/00_luks_system /etc/secrets/disk.key
             fi
             chmod 000 /etc/secrets
           '';
@@ -144,16 +223,38 @@ in
 
       initrd = {
         availableKernelModules = [ "nvme" "ahci" "xhci_pci" "usbhid" "usb_storage" "virtio_pci" "sr_mod" "virtio_blk" "virtio-scsi" "sd_mod" "sdhci_pci" "aesni_intel" "cryptd" ];
-        luks.devices.system = {
-          allowDiscards = true;
-          keyFile = lib.mkIf (cfg.encryption == "full") "/disk.key";
-          preLVM = true;
-          fallbackToPassword = true;
+        luks.devices = {
+          "00_system" =  {
+            allowDiscards = true;
+            keyFile = lib.mkIf (cfg.encryption == "full") "/disk.key";
+            preLVM = true;
+            fallbackToPassword = true;
+          };
         };
-
         secrets = lib.mkIf (cfg.encryption == "full") {
           "disk.key" = "/etc/secrets/disk.key";
         };
+      };
+    };
+
+    disko.devices.zpool = lib.mkIf (cfg.filesystem == "zfs") {
+      zroot = {
+        type = "zpool";
+        options.ashift = "12";
+        rootFsOptions = {
+            compression = "zstd";
+            acltype = "posixacl";
+            xattr = "sa";
+            mountpoint = "none";
+            canmount = "off";
+            dedup = "off";
+        };
+        datasets = builtins.listToAttrs (map (ds: {
+          name = ds.name;
+          value = {
+            type = "zfs_fs";
+          } // (if ds ? mountpoint then { mountpoint = ds.mountpoint; } else {});
+        }) zfsDatasets);
       };
     };
 
@@ -180,16 +281,20 @@ in
               ];
             };
           };
-          luks_system = {
-            label = "luks_system";
+          # NOTE prefix with 00 to ensure to unlock this first
+          "00_luks_system" = {
+            label = "00_luks_system";
             size = "100%";
             content = {
               type = "luks";
-              name = "system";
+              name = "00_system";
               extraFormatArgs = [ "--type luks1" "--pbkdf-force-iterations 500000" ];
               extraOpenArgs = [ "--type luks1" "--allow-discards" ];
               additionalKeyFiles = [ "/tmp/disk.key" ]; # NOTE: We use nixos-anywhere with this key setup location
-              content = {
+              content = mkIfElse (cfg.filesystem == "zfs") {
+                type = "zfs";
+                pool = "zroot";
+              } {
                 type = "btrfs";
                 extraArgs = [ "-f" ];
                 subvolumes = {

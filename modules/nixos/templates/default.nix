@@ -19,5 +19,7 @@
     ./system/desktop.nix
     ./system/storage.nix
     ./system/storage-pools.nix
+    ./backup/hetzner.nix
+    ./networking/bridge.nix
   ];
 }
